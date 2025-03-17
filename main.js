@@ -94,9 +94,10 @@ const gameState = {
         isJumping: false,
         jumpTime: 0,
         maxJumpTime: 0.5,
-        baseJumpForce: 10,  // Reduced from 15
-        maxJumpForce: 20,   // Reduced from 30
-        fallGravity: 20     // Increased from 15
+        baseJumpForce: 4,  // Reduced from 10
+        maxJumpForce: 15,   // Reduced from 20
+        fallGravity: 20,     // Kept the same
+        rocketParticleRate: 0.05  // New property for rocket particle spawn rate
     },
     projectiles: [],
     collectibles: [],
@@ -250,7 +251,7 @@ function createSeed() {
 // Create rocket particles
 function createRocketParticle() {
     const particle = new THREE.Mesh(
-        new THREE.SphereGeometry(0.05, 4, 4),
+        new THREE.SphereGeometry(0.1, 4, 4),  // Doubled particle size
         new THREE.MeshBasicMaterial({ 
             color: 0xFF4400,
             transparent: true,
@@ -258,15 +259,15 @@ function createRocketParticle() {
         })
     );
     particle.velocity = new THREE.Vector3(
-        (Math.random() - 0.5) * 2,
-        -Math.random() * 4,
-        (Math.random() - 0.5) * 2
+        (Math.random() - 0.5) * 4,  // Doubled spread range
+        -Math.random() * 6,         // Increased downward velocity
+        (Math.random() - 0.5) * 4   // Doubled spread range
     );
-    particle.lifetime = 0.5;
+    particle.lifetime = 0.8;  // Increased lifetime
     return particle;
 }
 
-// Modify createHamster to add rocket exhaust point
+// Modify createHamster to add multiple rocket exhaust points
 function createHamster() {
     // Body
     const body = new THREE.Group();
@@ -306,11 +307,20 @@ function createHamster() {
     rocketMesh.position.z = -0.4;
     body.add(rocketMesh);
 
-    // Add rocket exhaust point
-    const exhaustPoint = new THREE.Object3D();
-    exhaustPoint.position.set(0, -0.3, -0.4);
-    body.add(exhaustPoint);
-    body.exhaustPoint = exhaustPoint;
+    // Add multiple rocket exhaust points
+    const exhaustPoints = new THREE.Group();
+    const numPoints = 3;  // Three exhaust points
+    for (let i = 0; i < numPoints; i++) {
+        const point = new THREE.Object3D();
+        point.position.set(
+            (i - 1) * 0.15,  // Spread points horizontally
+            -0.3,
+            -0.4
+        );
+        exhaustPoints.add(point);
+    }
+    body.add(exhaustPoints);
+    body.exhaustPoints = exhaustPoints;
 
     return body;
 }
@@ -1292,6 +1302,30 @@ function gameLoop(currentTime) {
             (gameState.player.maxJumpForce - gameState.player.baseJumpForce) * jumpProgress;
         
         gameState.player.velocity.y = currentJumpForce;
+
+        // Add rocket particles when jumping with multiple points and colors
+        if (Math.random() < gameState.player.rocketParticleRate * 2) {  // Doubled particle rate
+            hamster.exhaustPoints.children.forEach(exhaustPoint => {
+                const particle = createRocketParticle();
+                const worldPos = new THREE.Vector3();
+                exhaustPoint.getWorldPosition(worldPos);
+                particle.position.copy(worldPos);
+                
+                // Random fire colors
+                const colors = [0xFF4400, 0xFF6600, 0xFF8800, 0xFFAA00];
+                particle.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+                
+                // Add some random rotation to particles
+                particle.rotation.set(
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI
+                );
+                
+                scene.add(particle);
+                gameState.projectiles.push(particle);
+            });
+        }
     } else {
         // Apply reduced gravity when falling
         gameState.player.isJumping = false;
