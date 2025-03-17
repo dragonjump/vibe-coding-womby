@@ -7,14 +7,24 @@ const gameState = {
         backward: false,
         left: false,
         right: false,
-        space: false
+        space: false,
+        shift: false // For rocket boost
     },
     player: {
         velocity: new THREE.Vector3(),
         speed: 10,
         jumpForce: 15,
-        gravity: 30
-    }
+        gravity: 30,
+        fuel: 100,
+        maxFuel: 100,
+        fuelRegenRate: 20,
+        boostForce: 20,
+        seeds: 10,
+        maxSeeds: 10,
+        seedReloadTime: 1,
+        lastSeedTime: 0
+    },
+    projectiles: []
 };
 
 // Initialize clouds array
@@ -117,7 +127,34 @@ cloudLayers.forEach(layer => {
     }
 });
 
-// Create hamster placeholder
+// Create seed projectile
+function createSeed() {
+    const seedGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+    const seedMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Dark brown
+    const seed = new THREE.Mesh(seedGeometry, seedMaterial);
+    return seed;
+}
+
+// Create rocket particles
+function createRocketParticle() {
+    const particle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.05, 4, 4),
+        new THREE.MeshBasicMaterial({ 
+            color: 0xFF4400,
+            transparent: true,
+            opacity: 0.8
+        })
+    );
+    particle.velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 2,
+        -Math.random() * 4,
+        (Math.random() - 0.5) * 2
+    );
+    particle.lifetime = 0.5;
+    return particle;
+}
+
+// Modify createHamster to add rocket exhaust point
 function createHamster() {
     // Body
     const body = new THREE.Group();
@@ -157,6 +194,12 @@ function createHamster() {
     rocketMesh.position.z = -0.4;
     body.add(rocketMesh);
 
+    // Add rocket exhaust point
+    const exhaustPoint = new THREE.Object3D();
+    exhaustPoint.position.set(0, -0.3, -0.4);
+    body.add(exhaustPoint);
+    body.exhaustPoint = exhaustPoint;
+
     return body;
 }
 
@@ -173,6 +216,7 @@ function handleKeyDown(event) {
         case 'a': gameState.keys.left = true; break;
         case 'd': gameState.keys.right = true; break;
         case ' ': gameState.keys.space = true; break;
+        case 'shift': gameState.keys.shift = true; break;
     }
 }
 
@@ -183,11 +227,36 @@ function handleKeyUp(event) {
         case 'a': gameState.keys.left = false; break;
         case 'd': gameState.keys.right = false; break;
         case ' ': gameState.keys.space = false; break;
+        case 'shift': gameState.keys.shift = false; break;
+    }
+}
+
+// Mouse click handler for seed shooting
+function handleClick(event) {
+    if (gameState.player.seeds > 0 && 
+        currentTime - gameState.player.lastSeedTime > gameState.player.seedReloadTime * 1000) {
+        
+        const seed = createSeed();
+        seed.position.copy(hamster.position);
+        
+        // Calculate shooting direction based on camera
+        const shootDirection = new THREE.Vector3(0, 0, -1);
+        shootDirection.applyQuaternion(camera.quaternion);
+        
+        seed.velocity = shootDirection.multiplyScalar(20); // Seed speed
+        seed.velocity.y += 2; // Add upward arc
+        
+        gameState.projectiles.push(seed);
+        scene.add(seed);
+        
+        gameState.player.seeds--;
+        gameState.player.lastSeedTime = currentTime;
     }
 }
 
 window.addEventListener('keydown', handleKeyDown);
 window.addEventListener('keyup', handleKeyUp);
+window.addEventListener('click', handleClick);
 
 // Window resize handler
 window.addEventListener('resize', () => {
@@ -250,6 +319,65 @@ function gameLoop(currentTime) {
         cloud.position.y += Math.cos(currentTime * speed + index) * (amplitude * 0.5);
         cloud.rotation.y += 0.0001 * (1 + index % 2);
     });
+
+    // Update fuel
+    if (!gameState.keys.shift) {
+        gameState.player.fuel = Math.min(
+            gameState.player.fuel + gameState.player.fuelRegenRate * gameState.deltaTime,
+            gameState.player.maxFuel
+        );
+    }
+
+    // Apply rocket boost
+    if (gameState.keys.shift && gameState.player.fuel > 0) {
+        gameState.player.velocity.y += gameState.player.boostForce * gameState.deltaTime;
+        gameState.player.fuel -= 30 * gameState.deltaTime;
+
+        // Add rocket particles
+        if (Math.random() < 0.3) {
+            const particle = createRocketParticle();
+            const worldPos = new THREE.Vector3();
+            hamster.exhaustPoint.getWorldPosition(worldPos);
+            particle.position.copy(worldPos);
+            scene.add(particle);
+            gameState.projectiles.push(particle);
+        }
+    }
+
+    // Update projectiles
+    for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
+        const projectile = gameState.projectiles[i];
+        
+        if (projectile.lifetime !== undefined) {
+            // Particle update
+            projectile.lifetime -= gameState.deltaTime;
+            if (projectile.lifetime <= 0) {
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+            projectile.material.opacity = projectile.lifetime / 0.5;
+        } else {
+            // Seed update
+            projectile.velocity.y -= gameState.player.gravity * gameState.deltaTime;
+        }
+        
+        projectile.position.add(
+            projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
+        );
+
+        // Remove seeds that fall below ground
+        if (projectile.position.y < 0) {
+            scene.remove(projectile);
+            gameState.projectiles.splice(i, 1);
+        }
+    }
+
+    // Regenerate seeds over time
+    if (gameState.player.seeds < gameState.player.maxSeeds && 
+        currentTime - gameState.player.lastSeedTime > gameState.player.seedReloadTime * 1000) {
+        gameState.player.seeds++;
+    }
 
     // Render scene
     renderer.render(scene, camera);

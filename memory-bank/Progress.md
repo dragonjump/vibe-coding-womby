@@ -45,14 +45,34 @@
   - Proper viewing angle
   - Height offset for better visibility
 
+### Step 4: Core Gameplay (Completed)
+- Implemented rocket boost mechanics:
+  - Shift key activation
+  - Fuel system with regeneration
+  - Visual particle effects
+  - Exhaust point tracking
+- Added seed shooting system:
+  - Left click to shoot
+  - Ballistic trajectory
+  - Automatic seed regeneration
+  - Camera-based targeting
+- Created particle effects system:
+  - Rocket exhaust particles
+  - Particle lifetime and fading
+  - Physics-based movement
+  - Memory-efficient cleanup
+
 ### Next Steps
-- Proceed to Step 4: Core Gameplay
-- Need to implement rocket boost mechanics
-- Need to add seed shooting system
-- Need to create basic collectibles
+- Proceed to Step 5: Basic Level Elements
+- Need to add collectible seeds
+- Need to create simple obstacles
+- Need to implement basic score system
 
 ### Testing Notes
 - Character responds to WASD controls
 - Jump mechanics working with gravity
 - Camera follows character smoothly
 - Basic collision with ground implemented
+- Rocket boost activates with Shift
+- Seed shooting works with left click
+- Particle effects visible and performing well
