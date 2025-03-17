@@ -1,16 +1,31 @@
-// Game state
+// Import Three.js and required components
+import * as THREE from 'https://unpkg.com/three@0.157.0/build/three.module.js';
+
+// Import level system
+import { LevelManager, LEVELS } from './levels.js';
+
+// Create level manager instance
+const levelManager = new LevelManager();
+
+// Create canvas element
+const canvas = document.createElement('canvas');
+canvas.id = 'game-canvas';
+document.body.appendChild(canvas);
+
+// Modify game state to include level info
 const gameState = {
     time: 0,
     deltaTime: 0,
     score: 0,
-    state: 'start', // start, playing, paused, gameover
+    state: 'start', // start, playing, paused, gameover, levelComplete
+    level: 1,
     keys: {
         forward: false,
         backward: false,
         left: false,
         right: false,
         space: false,
-        shift: false // For rocket boost
+        shift: false
     },
     player: {
         velocity: new THREE.Vector3(),
@@ -57,7 +72,7 @@ camera.lookAt(0, 0, 0);
 
 // Renderer setup
 const renderer = new THREE.WebGLRenderer({
-    canvas: document.getElementById('game-canvas'),
+    canvas: canvas,
     antialias: true
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -539,7 +554,43 @@ function createObstacle(x, y, z, width = 1, height = 2, depth = 1) {
     return obstacle;
 }
 
-// Initialize level elements
+// Create level complete screen
+const levelCompleteScreen = document.createElement('div');
+levelCompleteScreen.style.position = 'absolute';
+levelCompleteScreen.style.top = '50%';
+levelCompleteScreen.style.left = '50%';
+levelCompleteScreen.style.transform = 'translate(-50%, -50%)';
+levelCompleteScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+levelCompleteScreen.style.padding = '20px';
+levelCompleteScreen.style.borderRadius = '10px';
+levelCompleteScreen.style.display = 'none';
+levelCompleteScreen.style.textAlign = 'center';
+levelCompleteScreen.style.zIndex = '1000';
+levelCompleteScreen.innerHTML = `
+    <h2 style="color: white; margin-bottom: 20px;">Level Complete!</h2>
+    <p style="color: white; margin-bottom: 20px;">Score: <span id="finalScore">0</span></p>
+    <p style="color: gold; margin-bottom: 20px;" id="newHighScore" style="display: none;">New High Score!</p>
+    <button id="nextLevelButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Next Level</button>
+`;
+document.body.appendChild(levelCompleteScreen);
+
+// Create UI elements
+const scoreElement = document.getElementById('score');
+const resourceElement = document.getElementById('fuel');
+
+// Create overlay for visual effects
+const overlayElement = document.createElement('div');
+overlayElement.style.position = 'fixed';
+overlayElement.style.top = '0';
+overlayElement.style.left = '0';
+overlayElement.style.width = '100%';
+overlayElement.style.height = '100%';
+overlayElement.style.pointerEvents = 'none';
+overlayElement.style.transition = 'background-color 0.1s';
+overlayElement.style.backgroundColor = 'transparent';
+document.body.appendChild(overlayElement);
+
+// Update level initialization
 function initializeLevelElements() {
     // Clear existing elements
     gameState.collectibles.forEach(c => scene.remove(c));
@@ -547,70 +598,124 @@ function initializeLevelElements() {
     gameState.collectibles.length = 0;
     gameState.obstacles.length = 0;
     
-    // Add collectible seeds in a pattern
-    for (let i = 0; i < 10; i++) {
-        const angle = (i / 10) * Math.PI * 2;
-        const radius = 8;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
-        const seed = createCollectibleSeed(x, 3, z);
-        gameState.collectibles.push(seed);
-        scene.add(seed);
+    const currentLevel = levelManager.getCurrentLevel();
+    
+    // Update environment
+    scene.background = new THREE.Color(currentLevel.environment.skyColor);
+    ground.material.color.setHex(currentLevel.environment.groundColor);
+    
+    // Add fog if specified
+    if (currentLevel.environment.fogDensity > 0) {
+        scene.fog = new THREE.FogExp2(currentLevel.environment.skyColor, currentLevel.environment.fogDensity);
+    } else {
+        scene.fog = null;
     }
     
-    // Add obstacles in strategic positions
-    const obstaclePositions = [
-        { x: 5, y: 0, z: 5, w: 1, h: 3, d: 1 },
-        { x: -5, y: 0, z: -5, w: 1, h: 2, d: 1 },
-        { x: 5, y: 0, z: -5, w: 1, h: 4, d: 1 },
-        { x: -5, y: 0, z: 5, w: 1, h: 2.5, d: 1 }
-    ];
+    // Add collectibles using pattern
+    const collectiblePositions = levelManager.getCollectiblePositions();
+    collectiblePositions.forEach(pos => {
+        const seed = createCollectibleSeed(pos.x, pos.y, pos.z);
+        gameState.collectibles.push(seed);
+        scene.add(seed);
+    });
     
-    obstaclePositions.forEach(pos => {
-        const obstacle = createObstacle(pos.x, pos.y, pos.z, pos.w, pos.h, pos.d);
+    // Add obstacles
+    currentLevel.obstacles.forEach(obs => {
+        const obstacle = createObstacle(obs.x, obs.y, obs.z, obs.w, obs.h, obs.d);
+        if (obs.moving) {
+            obstacle.userData.moving = true;
+            obstacle.userData.speed = obs.speed;
+            obstacle.userData.startPos = new THREE.Vector3(obs.x, obs.y, obs.z);
+            obstacle.userData.time = 0;
+        }
         gameState.obstacles.push(obstacle);
         scene.add(obstacle);
     });
 }
 
-// Create score display
-const scoreElement = document.createElement('div');
-scoreElement.style.position = 'absolute';
-scoreElement.style.top = '20px';
-scoreElement.style.left = '20px';
-scoreElement.style.color = 'white';
-scoreElement.style.fontSize = '24px';
-scoreElement.style.fontFamily = 'Arial, sans-serif';
-scoreElement.style.textShadow = '2px 2px 4px rgba(0,0,0,0.5)';
-document.body.appendChild(scoreElement);
+// Update game loop to handle moving obstacles
+function updateObstacles(currentTime) {
+    gameState.obstacles.forEach(obstacle => {
+        if (obstacle.userData.moving) {
+            obstacle.userData.time += gameState.deltaTime;
+            const t = obstacle.userData.time * obstacle.userData.speed;
+            
+            // Create a circular motion
+            const radius = 5;
+            const x = obstacle.userData.startPos.x + Math.cos(t) * radius;
+            const z = obstacle.userData.startPos.z + Math.sin(t) * radius;
+            
+            obstacle.position.x = x;
+            obstacle.position.z = z;
+            
+            // Update bounding box
+            obstacle.userData.boundingBox.setFromObject(obstacle);
+        }
+    });
+}
 
-// Create resource display
-const resourceElement = document.createElement('div');
-resourceElement.style.position = 'absolute';
-resourceElement.style.top = '60px';
-resourceElement.style.left = '20px';
-resourceElement.style.color = 'white';
-resourceElement.style.fontSize = '18px';
-resourceElement.style.fontFamily = 'Arial, sans-serif';
-resourceElement.style.textShadow = '2px 2px 4px rgba(0,0,0,0.5)';
-document.body.appendChild(resourceElement);
+// Modify score display to show level info
+scoreElement.style.fontSize = '20px';
+scoreElement.style.width = '200px';
 
-// Update UI elements
 function updateUI() {
-    scoreElement.textContent = `Score: ${gameState.score}`;
+    const currentLevel = levelManager.getCurrentLevel();
+    scoreElement.innerHTML = `
+        Level ${currentLevel.id}: ${currentLevel.name}<br>
+        Score: ${gameState.score} / ${currentLevel.targetScore}<br>
+        High Score: ${levelManager.highScores.get(currentLevel.id) || 0}
+    `;
     resourceElement.textContent = `Fuel: ${Math.round(gameState.player.fuel)}% | Seeds: ${gameState.player.seeds}`;
 }
 
-// Create visual effects overlay
-const overlayElement = document.createElement('div');
-overlayElement.style.position = 'absolute';
-overlayElement.style.top = '0';
-overlayElement.style.left = '0';
-overlayElement.style.width = '100%';
-overlayElement.style.height = '100%';
-overlayElement.style.pointerEvents = 'none';
-overlayElement.style.transition = 'background-color 0.3s';
-document.body.appendChild(overlayElement);
+// Add level complete handling
+function checkLevelComplete() {
+    if (levelManager.isLevelComplete(gameState.score)) {
+        gameState.state = 'levelComplete';
+        levelCompleteScreen.style.display = 'block';
+        document.getElementById('finalScore').textContent = gameState.score;
+        
+        // Check for high score
+        const isNewHighScore = levelManager.saveHighScore(levelManager.currentLevel, gameState.score);
+        document.getElementById('newHighScore').style.display = isNewHighScore ? 'block' : 'none';
+        
+        // Hide next level button if this is the last level
+        document.getElementById('nextLevelButton').style.display = 
+            levelManager.currentLevel < LEVELS.length ? 'block' : 'none';
+    }
+}
+
+// Handle next level button
+document.getElementById('nextLevelButton').addEventListener('click', () => {
+    if (levelManager.nextLevel()) {
+        levelCompleteScreen.style.display = 'none';
+        gameState.state = 'playing';
+        resetGame();
+    }
+});
+
+// Update reset game function
+function resetGame() {
+    gameState.score = 0;
+    gameState.player.fuel = gameState.player.maxFuel;
+    gameState.player.seeds = gameState.player.maxSeeds;
+    hamster.position.set(0, 2, 0);
+    gameState.player.velocity.set(0, 0, 0);
+    initializeLevelElements();
+}
+
+// Add escape key handler for pause
+window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        if (gameState.state === 'playing') {
+            gameState.state = 'paused';
+            pauseMenu.style.display = 'block';
+        } else if (gameState.state === 'paused') {
+            gameState.state = 'playing';
+            pauseMenu.style.display = 'none';
+        }
+    }
+});
 
 // Create pause menu
 const pauseMenu = document.createElement('div');
@@ -642,33 +747,10 @@ document.getElementById('restartButton').addEventListener('click', () => {
     pauseMenu.style.display = 'none';
 });
 
-// Reset game function
-function resetGame() {
-    gameState.score = 0;
-    gameState.player.fuel = gameState.player.maxFuel;
-    gameState.player.seeds = gameState.player.maxSeeds;
-    hamster.position.set(0, 2, 0);
-    gameState.player.velocity.set(0, 0, 0);
-    initializeLevelElements();
-}
-
-// Add escape key handler for pause
-window.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-        if (gameState.state === 'playing') {
-            gameState.state = 'paused';
-            pauseMenu.style.display = 'block';
-        } else if (gameState.state === 'paused') {
-            gameState.state = 'playing';
-            pauseMenu.style.display = 'none';
-        }
-    }
-});
-
 // Modify game loop to include effects and state management
 function gameLoop(currentTime) {
-    // Skip updates if paused
-    if (gameState.state === 'paused') {
+    // Skip updates if paused or in level complete state
+    if (gameState.state === 'paused' || gameState.state === 'levelComplete') {
         requestAnimationFrame(gameLoop);
         return;
     }
@@ -885,19 +967,24 @@ function gameLoop(currentTime) {
         }
     }
 
-    // Update UI
+    // Add obstacle updates
+    updateObstacles(currentTime);
+
+    // Check for level completion
+    checkLevelComplete();
+
+    // Update UI with level info
     updateUI();
 
-    // Only render and update if not in start state
+    // Only render if not in start state
     if (gameState.state !== 'start') {
         renderer.render(scene, camera);
     }
 
-    // Continue game loop
     requestAnimationFrame(gameLoop);
 }
 
-// Initialize level elements but don't start game loop until user clicks start
+// Initialize first level
 initializeLevelElements();
 
 // Start game loop

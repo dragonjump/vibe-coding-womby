@@ -1,0 +1,14 @@
+{
+  "name": "rocket-hamster-adventure",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A 3D platformer game featuring a rocket-powered hamster",
+  "main": "main.js",
+  "scripts": {
+    "start": "serve ."
+  },
+  "dependencies": {
+    "serve": "^14.2.1",
+    "three": "^0.160.0"
+  }
+} 
