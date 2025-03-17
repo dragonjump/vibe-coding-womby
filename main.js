@@ -89,7 +89,14 @@ const gameState = {
         lastSeedTime: 0,
         isInvulnerable: false,
         invulnerableTime: 0,
-        flashTime: 0
+        flashTime: 0,
+        // Adjusted jump properties
+        isJumping: false,
+        jumpTime: 0,
+        maxJumpTime: 0.5,
+        baseJumpForce: 10,  // Reduced from 15
+        maxJumpForce: 20,   // Reduced from 30
+        fallGravity: 20     // Increased from 15
     },
     projectiles: [],
     collectibles: [],
@@ -1270,18 +1277,37 @@ function gameLoop(currentTime) {
     if (gameState.keys.right) hamster.position.x += moveSpeed;
 
     // Apply gravity and jumping
-    gameState.player.velocity.y -= gameState.player.gravity * gameState.deltaTime;
-    if (gameState.keys.space && hamster.position.y <= 2) {
-        gameState.player.velocity.y = gameState.player.jumpForce;
+    if (gameState.keys.space && hamster.position.y > 1) {
+        // Start or continue jumping
+        if (!gameState.player.isJumping) {
+            gameState.player.isJumping = true;
+            gameState.player.jumpTime = 0;
+            playSound('jump');
+        }
+        
+        // Increase jump force over time
+        gameState.player.jumpTime = Math.min(gameState.player.jumpTime + gameState.deltaTime, gameState.player.maxJumpTime);
+        const jumpProgress = gameState.player.jumpTime / gameState.player.maxJumpTime;
+        const currentJumpForce = gameState.player.baseJumpForce + 
+            (gameState.player.maxJumpForce - gameState.player.baseJumpForce) * jumpProgress;
+        
+        gameState.player.velocity.y = currentJumpForce;
+    } else {
+        // Apply reduced gravity when falling
+        gameState.player.isJumping = false;
+        gameState.player.velocity.y -= gameState.player.fallGravity * gameState.deltaTime;
     }
 
     // Update vertical position
     hamster.position.y += gameState.player.velocity.y * gameState.deltaTime;
 
-    // Ground collision
+    // Ground collision with bounce effect
     if (hamster.position.y < 2) {
         hamster.position.y = 2;
-        gameState.player.velocity.y = 0;
+        gameState.player.velocity.y = Math.abs(gameState.player.velocity.y) * 0.3; // Bounce with 30% of impact velocity
+        if (Math.abs(gameState.player.velocity.y) < 0.1) {
+            gameState.player.velocity.y = 0;
+        }
     }
 
     // Update camera to follow hamster
