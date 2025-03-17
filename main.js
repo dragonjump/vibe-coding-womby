@@ -1,13 +1,57 @@
 // Import Three.js and required components
 import * as THREE from 'https://unpkg.com/three@0.157.0/build/three.module.js';
 
-// Import level system and power-ups
+// Import level system, power-ups, and achievements
 import { LevelManager, LEVELS } from './levels.js';
 import { PowerUpManager, POWERUP_TYPES } from './powerups.js';
+import { AchievementManager } from './achievements.js';
+
+// Background music configuration
+const MUSIC_TRACKS = {
+    TRAINING: {
+        frequency: 440, // A4 note
+        notes: [0, 4, 7, 12, 7, 4], // Major chord arpeggio
+        noteDuration: 0.2,
+        tempo: 120
+    },
+    CLOUD_CITY: {
+        frequency: 392, // G4 note
+        notes: [0, 3, 7, 10, 7, 3], // Minor chord arpeggio
+        noteDuration: 0.3,
+        tempo: 100
+    },
+    SUNSET: {
+        frequency: 349.23, // F4 note
+        notes: [0, 5, 8, 12, 8, 5], // Diminished chord arpeggio
+        noteDuration: 0.25,
+        tempo: 140
+    }
+};
+
+// Create pause menu first
+const pauseMenu = document.createElement('div');
+pauseMenu.style.position = 'absolute';
+pauseMenu.style.top = '50%';
+pauseMenu.style.left = '50%';
+pauseMenu.style.transform = 'translate(-50%, -50%)';
+pauseMenu.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+pauseMenu.style.padding = '20px';
+pauseMenu.style.borderRadius = '10px';
+pauseMenu.style.display = 'none';
+pauseMenu.style.textAlign = 'center';
+pauseMenu.style.zIndex = '1000';
+pauseMenu.innerHTML = `
+    <h2 style="color: white; margin-bottom: 20px;">Game Paused</h2>
+    <button id="resumeButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Resume</button>
+    <button id="achievementsButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Achievements</button>
+    <button id="restartButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Restart</button>
+`;
+document.body.appendChild(pauseMenu);
 
 // Create managers
 const levelManager = new LevelManager();
 const powerUpManager = new PowerUpManager();
+const achievementManager = new AchievementManager();
 
 // Create canvas element
 const canvas = document.createElement('canvas');
@@ -434,7 +478,8 @@ function setupSynthSounds() {
             jump: { freq: 300, duration: 0.3, volume: 0.4 },
             boost: { freq: 100, duration: 0.3, volume: 0.2 },
             collect: { freq: 600, duration: 0.2, volume: 0.4 },
-            hit: { freq: 100, duration: 0.3, volume: 0.4 }
+            hit: { freq: 100, duration: 0.3, volume: 0.4 },
+            achievement: { freq: 800, duration: 0.4, volume: 0.5 } // New achievement sound
         };
 
         Object.entries(sounds).forEach(([type, params]) => {
@@ -646,61 +691,236 @@ overlayElement.style.transition = 'background-color 0.1s';
 overlayElement.style.backgroundColor = 'transparent';
 document.body.appendChild(overlayElement);
 
-// Update level initialization
-function initializeLevelElements() {
-    // Clear existing elements
-    gameState.collectibles.forEach(c => scene.remove(c));
-    gameState.obstacles.forEach(o => scene.remove(o));
-    gameState.collectibles.length = 0;
-    gameState.obstacles.length = 0;
-    
-    const currentLevel = levelManager.getCurrentLevel();
-    
-    // Update environment
-    scene.background = new THREE.Color(currentLevel.environment.skyColor);
-    ground.material.color.setHex(currentLevel.environment.groundColor);
-    
-    // Add fog if specified
-    if (currentLevel.environment.fogDensity > 0) {
-        scene.fog = new THREE.FogExp2(currentLevel.environment.skyColor, currentLevel.environment.fogDensity);
-    } else {
-        scene.fog = null;
-    }
-    
-    // Add collectibles using pattern
-    const collectiblePositions = levelManager.getCollectiblePositions();
-    collectiblePositions.forEach(pos => {
-        const seed = createCollectibleSeed(pos.x, pos.y, pos.z);
-        gameState.collectibles.push(seed);
-        scene.add(seed);
-    });
-    
-    // Add obstacles
-    currentLevel.obstacles.forEach(obs => {
-        const obstacle = createObstacle(obs.x, obs.y, obs.z, obs.w, obs.h, obs.d);
-        if (obs.moving) {
-            obstacle.userData.moving = true;
-            obstacle.userData.speed = obs.speed;
-            obstacle.userData.startPos = new THREE.Vector3(obs.x, obs.y, obs.z);
-            obstacle.userData.time = 0;
-        }
-        gameState.obstacles.push(obstacle);
-        scene.add(obstacle);
-    });
+// Create achievements menu
+const achievementsMenu = document.createElement('div');
+achievementsMenu.style.position = 'absolute';
+achievementsMenu.style.top = '50%';
+achievementsMenu.style.left = '50%';
+achievementsMenu.style.transform = 'translate(-50%, -50%)';
+achievementsMenu.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+achievementsMenu.style.padding = '20px';
+achievementsMenu.style.borderRadius = '10px';
+achievementsMenu.style.display = 'none';
+achievementsMenu.style.color = 'white';
+achievementsMenu.style.minWidth = '300px';
+achievementsMenu.style.maxHeight = '80vh';
+achievementsMenu.style.overflowY = 'auto';
+achievementsMenu.style.zIndex = '1000';
+document.body.appendChild(achievementsMenu);
 
-    // Add power-ups
-    powerUpManager.clearPowerUps();
-    if (currentLevel.powerUps) {
-        currentLevel.powerUps.forEach(powerUpConfig => {
-            const powerUp = powerUpManager.createPowerUp(
-                powerUpConfig.type,
-                new THREE.Vector3(powerUpConfig.x, powerUpConfig.y, powerUpConfig.z)
-            );
-            powerUp.mesh = createPowerUpMesh(POWERUP_TYPES[powerUpConfig.type]);
-            powerUp.mesh.position.copy(powerUp.position);
-            scene.add(powerUp.mesh);
-        });
+// Update achievements menu content
+function updateAchievementsMenu() {
+    const achievements = achievementManager.getProgress();
+    achievementsMenu.innerHTML = `
+        <h2 style="margin-bottom: 20px; text-align: center;">Achievements</h2>
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            ${achievements.map(achievement => `
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 10px;
+                    background-color: rgba(255, 255, 255, ${achievement.unlocked ? '0.2' : '0.1'});
+                    border-radius: 5px;
+                ">
+                    <div style="font-size: 24px;">${achievement.icon}</div>
+                    <div>
+                        <div style="font-weight: bold;">${achievement.name}</div>
+                        <div style="font-size: 0.9em; opacity: 0.8;">${achievement.description}</div>
+                        ${!achievement.unlocked ? `
+                            <div style="font-size: 0.8em; margin-top: 5px;">
+                                Progress: ${Math.min(achievement.progress, achievement.requirement)}/${achievement.requirement}
+                            </div>
+                        ` : ''}
+                    </div>
+                    ${achievement.unlocked ? `
+                        <div style="margin-left: auto; color: #4CAF50;">✓</div>
+                    ` : ''}
+                </div>
+            `).join('')}
+        </div>
+        <button id="closeAchievementsButton" style="
+            display: block;
+            margin: 20px auto 0;
+            padding: 10px 20px;
+            cursor: pointer;
+        ">Close</button>
+    `;
+
+    document.getElementById('closeAchievementsButton').addEventListener('click', () => {
+        achievementsMenu.style.display = 'none';
+        pauseMenu.style.display = 'block';
+    });
+}
+
+// Add achievements button handler
+document.getElementById('achievementsButton').addEventListener('click', () => {
+    pauseMenu.style.display = 'none';
+    updateAchievementsMenu();
+    achievementsMenu.style.display = 'block';
+});
+
+let currentMusicTrack = null;
+let musicGainNode = null;
+
+// Create synth music
+function createMusicNote(frequency, time, gainNode) {
+    if (!audioContext) return null;
+    
+    const oscillator = audioContext.createOscillator();
+    const noteGain = audioContext.createGain();
+    
+    // Use multiple waveforms for richer sound
+    oscillator.type = 'sine';
+    const secondOsc = audioContext.createOscillator();
+    secondOsc.type = 'triangle';
+    secondOsc.frequency.value = frequency * 2;
+    
+    // Envelope settings
+    noteGain.gain.setValueAtTime(0, time);
+    noteGain.gain.linearRampToValueAtTime(0.3, time + 0.05);
+    noteGain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+    
+    oscillator.connect(noteGain);
+    secondOsc.connect(noteGain);
+    noteGain.connect(gainNode);
+    
+    oscillator.frequency.value = frequency;
+    oscillator.start(time);
+    oscillator.stop(time + 0.5);
+    
+    secondOsc.start(time);
+    secondOsc.stop(time + 0.5);
+    
+    return { oscillator, secondOsc };
+}
+
+function playBackgroundMusic(track) {
+    if (!audioContext || currentMusicTrack === track) return;
+    
+    currentMusicTrack = track;
+    
+    if (!musicGainNode) {
+        musicGainNode = audioContext.createGain();
+        musicGainNode.gain.value = 0.2; // Lower volume for background music
+        musicGainNode.connect(audioContext.destination);
     }
+    
+    const baseFreq = track.frequency;
+    const noteDuration = 60 / track.tempo;
+    let currentTime = audioContext.currentTime;
+    
+    function scheduleNotes() {
+        track.notes.forEach((note, index) => {
+            const freq = baseFreq * Math.pow(2, note / 12);
+            createMusicNote(freq, currentTime + index * noteDuration, musicGainNode);
+        });
+        
+        currentTime += track.notes.length * noteDuration;
+        
+        // Schedule next iteration slightly before current sequence ends
+        setTimeout(() => {
+            if (currentMusicTrack === track) {
+                scheduleNotes();
+            }
+        }, (track.notes.length * noteDuration - 0.1) * 1000);
+    }
+    
+    scheduleNotes();
+}
+
+// Mobile controls
+const touchControls = document.createElement('div');
+touchControls.style.position = 'fixed';
+touchControls.style.bottom = '20px';
+touchControls.style.left = '50%';
+touchControls.style.transform = 'translateX(-50%)';
+touchControls.style.display = 'none';
+touchControls.style.zIndex = '1000';
+touchControls.innerHTML = `
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+        <button id="jumpBtn" style="
+            grid-column: 2;
+            padding: 20px;
+            background: rgba(255,255,255,0.5);
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+        ">↑</button>
+        <button id="leftBtn" style="
+            padding: 20px;
+            background: rgba(255,255,255,0.5);
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+        ">←</button>
+        <button id="boostBtn" style="
+            padding: 20px;
+            background: rgba(255,255,255,0.5);
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+        ">🚀</button>
+        <button id="rightBtn" style="
+            padding: 20px;
+            background: rgba(255,255,255,0.5);
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+        ">→</button>
+    </div>
+`;
+document.body.appendChild(touchControls);
+
+// Show/hide touch controls based on device
+function updateTouchControls() {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    touchControls.style.display = isMobile ? 'block' : 'none';
+}
+
+// Initial check for touch controls
+updateTouchControls();
+window.addEventListener('resize', updateTouchControls);
+
+// Touch control event handlers
+const touchButtons = {
+    jumpBtn: { press: () => gameState.keys.space = true, release: () => gameState.keys.space = false },
+    leftBtn: { press: () => gameState.keys.left = true, release: () => gameState.keys.left = false },
+    rightBtn: { press: () => gameState.keys.right = true, release: () => gameState.keys.right = false },
+    boostBtn: { press: () => gameState.keys.shift = true, release: () => gameState.keys.shift = false }
+};
+
+Object.entries(touchButtons).forEach(([id, handlers]) => {
+    const button = document.getElementById(id);
+    button.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handlers.press();
+    });
+    button.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        handlers.release();
+    });
+});
+
+// Add shooting control for mobile
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (gameState.state === 'playing') {
+        handleClick(e);
+    }
+});
+
+// Modify initializeLevelElements to start appropriate music
+function initializeLevelElements() {
+    // ... existing initialization code ...
+
+    // Start level-specific music
+    const musicTracks = {
+        1: MUSIC_TRACKS.TRAINING,
+        2: MUSIC_TRACKS.CLOUD_CITY,
+        3: MUSIC_TRACKS.SUNSET
+    };
+    playBackgroundMusic(musicTracks[levelManager.currentLevel]);
 }
 
 // Update game loop to handle moving obstacles
@@ -761,6 +981,13 @@ function checkLevelComplete() {
         // Hide next level button if this is the last level
         document.getElementById('nextLevelButton').style.display = 
             levelManager.currentLevel < LEVELS.length ? 'block' : 'none';
+        
+        // Check achievements
+        achievementManager.checkLevelComplete(
+            levelManager.currentLevel,
+            gameState.score,
+            levelManager.highScores.get(levelManager.currentLevel) || 0
+        );
     }
 }
 
@@ -787,6 +1014,7 @@ function resetGame() {
     hamster.position.set(0, 2, 0);
     gameState.player.velocity.set(0, 0, 0);
     initializeLevelElements();
+    achievementManager.startLevel();
 }
 
 // Add escape key handler for pause
@@ -801,24 +1029,6 @@ window.addEventListener('keydown', (event) => {
         }
     }
 });
-
-// Create pause menu
-const pauseMenu = document.createElement('div');
-pauseMenu.style.position = 'absolute';
-pauseMenu.style.top = '50%';
-pauseMenu.style.left = '50%';
-pauseMenu.style.transform = 'translate(-50%, -50%)';
-pauseMenu.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-pauseMenu.style.padding = '20px';
-pauseMenu.style.borderRadius = '10px';
-pauseMenu.style.display = 'none';
-pauseMenu.style.textAlign = 'center';
-pauseMenu.innerHTML = `
-    <h2 style="color: white; margin-bottom: 20px;">Game Paused</h2>
-    <button id="resumeButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Resume</button>
-    <button id="restartButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Restart</button>
-`;
-document.body.appendChild(pauseMenu);
 
 // Pause game handlers
 document.getElementById('resumeButton').addEventListener('click', () => {
@@ -992,6 +1202,7 @@ function gameLoop(currentTime) {
                 scene.add(particle);
                 gameState.projectiles.push(particle);
             }
+            achievementManager.collectSeed();
         }
     });
 
@@ -1017,6 +1228,7 @@ function gameLoop(currentTime) {
             const pushDirection = hamster.position.clone().sub(obstacle.position).normalize();
             hamster.position.add(pushDirection.multiplyScalar(0.1));
             gameState.player.velocity.multiplyScalar(0.5);
+            achievementManager.hitObstacleEvent();
         }
     });
 
@@ -1098,8 +1310,27 @@ function gameLoop(currentTime) {
                 scene.add(particle);
                 gameState.projectiles.push(particle);
             }
+            achievementManager.collectPowerUp();
         }
     });
+
+    // Track flight time for achievement
+    const isAirborne = hamster.position.y > 2.1;
+    achievementManager.updateFlightTime(isAirborne, gameState.deltaTime);
+
+    // Update day/night cycle
+    dayNightCycle.update(gameState.deltaTime);
+    
+    // Update particle system
+    particleSystem.update(gameState.deltaTime);
+    
+    // Update spotlight to follow player
+    lights.spotlight.position.set(
+        hamster.position.x,
+        20,
+        hamster.position.z
+    );
+    lights.spotlight.target = hamster;
 
     // Only render if not in start state
     if (gameState.state !== 'start') {
@@ -1165,5 +1396,146 @@ function createPowerUpMesh(powerUpType) {
         group.add(particle);
     }
     
+    // Add point light
+    const powerLight = new THREE.PointLight(powerUpType.color, 1, 3);
+    powerLight.position.set(0, 0, 0);
+    group.add(powerLight);
+    
+    // Animate light intensity
+    function animateLight() {
+        const intensity = 0.7 + Math.sin(Date.now() * 0.005) * 0.3;
+        powerLight.intensity = intensity;
+        requestAnimationFrame(animateLight);
+    }
+    animateLight();
+    
     return group;
-} 
+}
+
+// Dynamic lighting system
+const lights = {
+    ambient: new THREE.AmbientLight(0xffffff, 0.5),
+    directional: new THREE.DirectionalLight(0xffffff, 0.8),
+    point: new THREE.PointLight(0xffd700, 1, 50),
+    spotlight: new THREE.SpotLight(0xffffff, 1)
+};
+
+lights.directional.position.set(5, 5, 5);
+lights.point.position.set(0, 10, 0);
+lights.spotlight.position.set(0, 20, 0);
+lights.spotlight.angle = Math.PI / 6;
+lights.spotlight.penumbra = 0.5;
+
+Object.values(lights).forEach(light => scene.add(light));
+
+// Day/night cycle
+const dayNightCycle = {
+    time: 0,
+    duration: 120, // 2 minutes per cycle
+    update: function(deltaTime) {
+        this.time = (this.time + deltaTime) % this.duration;
+        const cycle = (Math.sin(this.time / this.duration * Math.PI * 2) + 1) / 2;
+        
+        // Update sky color
+        const skyColor = new THREE.Color();
+        skyColor.setHSL(0.6, 0.8, 0.3 + cycle * 0.4);
+        scene.background = skyColor;
+        
+        // Update fog if present
+        if (scene.fog) {
+            scene.fog.color = skyColor;
+        }
+        
+        // Update lighting
+        lights.ambient.intensity = 0.2 + cycle * 0.3;
+        lights.directional.intensity = cycle * 0.8;
+        
+        // Update point light for night time glow
+        lights.point.intensity = 1 - cycle;
+        
+        // Ground color adjustment
+        ground.material.color.setHSL(0.3, 0.5, 0.2 + cycle * 0.4);
+    }
+};
+
+// Particle system for environmental effects
+class ParticleSystem {
+    constructor() {
+        this.particles = [];
+        this.maxParticles = 100;
+    }
+    
+    createParticle(type) {
+        const particle = {
+            mesh: new THREE.Mesh(
+                new THREE.SphereGeometry(0.1, 4, 4),
+                new THREE.MeshBasicMaterial({
+                    color: type === 'dust' ? 0xffffaa : 0xaaaaff,
+                    transparent: true,
+                    opacity: 0.6
+                })
+            ),
+            velocity: new THREE.Vector3(
+                (Math.random() - 0.5) * 2,
+                Math.random() * 2,
+                (Math.random() - 0.5) * 2
+            ),
+            lifetime: 3 + Math.random() * 2,
+            type: type
+        };
+        
+        particle.mesh.position.set(
+            hamster.position.x + (Math.random() - 0.5) * 20,
+            Math.random() * 20,
+            hamster.position.z + (Math.random() - 0.5) * 20
+        );
+        
+        scene.add(particle.mesh);
+        this.particles.push(particle);
+        
+        if (this.particles.length > this.maxParticles) {
+            const oldParticle = this.particles.shift();
+            scene.remove(oldParticle.mesh);
+        }
+    }
+    
+    update(deltaTime) {
+        // Add new particles
+        if (Math.random() < 0.1) {
+            this.createParticle(Math.random() < 0.7 ? 'dust' : 'sparkle');
+        }
+        
+        // Update existing particles
+        this.particles.forEach((particle, index) => {
+            particle.lifetime -= deltaTime;
+            
+            if (particle.lifetime <= 0) {
+                scene.remove(particle.mesh);
+                this.particles.splice(index, 1);
+                return;
+            }
+            
+            // Update position
+            particle.mesh.position.add(
+                particle.velocity.clone().multiplyScalar(deltaTime)
+            );
+            
+            // Update opacity
+            particle.mesh.material.opacity = 
+                Math.min(1, particle.lifetime) * 0.6;
+            
+            // Particle-specific behavior
+            if (particle.type === 'sparkle') {
+                particle.mesh.material.color.setHSL(
+                    (Date.now() % 1000) / 1000,
+                    1,
+                    0.5
+                );
+            } else {
+                particle.velocity.y += Math.sin(Date.now() * 0.001) * 0.1 * deltaTime;
+            }
+        });
+    }
+}
+
+const particleSystem = new ParticleSystem(); 
