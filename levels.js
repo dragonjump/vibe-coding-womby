@@ -12,6 +12,10 @@ export const LEVELS = [
             radius: 8,
             height: 3
         },
+        powerUps: [
+            { type: 'SPEED_BOOST', x: 0, y: 3, z: -5 },
+            { type: 'FUEL_REFILL', x: 0, y: 3, z: 5 }
+        ],
         obstacles: [
             { x: -5, y: 0, z: -5, w: 2, h: 3, d: 2 },
             { x: 5, y: 0, z: -5, w: 2, h: 3, d: 2 },
@@ -36,6 +40,11 @@ export const LEVELS = [
             radius: 10,
             height: 5
         },
+        powerUps: [
+            { type: 'SHIELD', x: -6, y: 5, z: 0 },
+            { type: 'RAPID_FIRE', x: 6, y: 5, z: 0 },
+            { type: 'FUEL_REFILL', x: 0, y: 7, z: 8 }
+        ],
         obstacles: [
             { x: 0, y: 2, z: -8, w: 4, h: 1, d: 4, moving: true, speed: 0.5 },
             { x: -6, y: 4, z: 0, w: 4, h: 1, d: 4 },
@@ -61,6 +70,13 @@ export const LEVELS = [
             radius: 12,
             height: 8
         },
+        powerUps: [
+            { type: 'SPEED_BOOST', x: -8, y: 4, z: 0 },
+            { type: 'SHIELD', x: 8, y: 4, z: 0 },
+            { type: 'RAPID_FIRE', x: 0, y: 6, z: -8 },
+            { type: 'FUEL_REFILL', x: 0, y: 6, z: 8 },
+            { type: 'SPEED_BOOST', x: 0, y: 8, z: 0 }
+        ],
         obstacles: [
             { x: -8, y: 3, z: 0, w: 3, h: 1, d: 3, moving: true, speed: 0.8 },
             { x: 8, y: 3, z: 0, w: 3, h: 1, d: 3, moving: true, speed: 0.8 },

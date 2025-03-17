@@ -1,11 +1,13 @@
 // Import Three.js and required components
 import * as THREE from 'https://unpkg.com/three@0.157.0/build/three.module.js';
 
-// Import level system
+// Import level system and power-ups
 import { LevelManager, LEVELS } from './levels.js';
+import { PowerUpManager, POWERUP_TYPES } from './powerups.js';
 
-// Create level manager instance
+// Create managers
 const levelManager = new LevelManager();
+const powerUpManager = new PowerUpManager();
 
 // Create canvas element
 const canvas = document.createElement('canvas');
@@ -624,6 +626,14 @@ seedsElement.id = 'seeds';
 seedsElement.style.fontSize = '18px';
 uiContainer.appendChild(seedsElement);
 
+// Create power-ups UI element
+const powerUpsElement = document.createElement('div');
+powerUpsElement.id = 'power-ups';
+powerUpsElement.style.fontSize = '16px';
+powerUpsElement.style.marginTop = '10px';
+powerUpsElement.style.display = 'none';
+uiContainer.appendChild(powerUpsElement);
+
 // Create overlay for visual effects
 const overlayElement = document.createElement('div');
 overlayElement.style.position = 'fixed';
@@ -677,6 +687,20 @@ function initializeLevelElements() {
         gameState.obstacles.push(obstacle);
         scene.add(obstacle);
     });
+
+    // Add power-ups
+    powerUpManager.clearPowerUps();
+    if (currentLevel.powerUps) {
+        currentLevel.powerUps.forEach(powerUpConfig => {
+            const powerUp = powerUpManager.createPowerUp(
+                powerUpConfig.type,
+                new THREE.Vector3(powerUpConfig.x, powerUpConfig.y, powerUpConfig.z)
+            );
+            powerUp.mesh = createPowerUpMesh(POWERUP_TYPES[powerUpConfig.type]);
+            powerUp.mesh.position.copy(powerUp.position);
+            scene.add(powerUp.mesh);
+        });
+    }
 }
 
 // Update game loop to handle moving obstacles
@@ -709,6 +733,18 @@ function updateUI() {
     `;
     resourceElement.textContent = `Fuel: ${Math.round(gameState.player.fuel)}%`;
     seedsElement.textContent = `Seeds: ${gameState.player.seeds}`;
+
+    // Update power-ups display
+    const activePowerUps = powerUpManager.getActivePowerUps();
+    if (activePowerUps.length > 0) {
+        const powerUpText = activePowerUps
+            .map(p => `${p.name}: ${p.timeRemaining}s`)
+            .join(' | ');
+        powerUpsElement.textContent = `Active Power-ups: ${powerUpText}`;
+        powerUpsElement.style.display = 'block';
+    } else {
+        powerUpsElement.style.display = 'none';
+    }
 }
 
 // Add level complete handling
@@ -1025,6 +1061,46 @@ function gameLoop(currentTime) {
     // Update UI with level info
     updateUI();
 
+    // Update power-ups
+    powerUpManager.updatePowerUps(gameState.deltaTime, currentTime);
+    
+    // Check power-up collection
+    powerUpManager.powerUpPool.forEach(powerUp => {
+        if (!powerUp.collected && powerUp.mesh && 
+            hamster.position.distanceTo(powerUp.position) < 1.5) {
+            
+            powerUp.collected = true;
+            powerUp.mesh.visible = false;
+            
+            // Activate power-up
+            powerUpManager.activatePowerUp(powerUp, gameState.player);
+            
+            // Play collect sound
+            playSound('collect');
+            
+            // Visual effects
+            gameState.effects.screenShake = 0.2;
+            overlayElement.style.backgroundColor = `rgba(${powerUp.type.color.toString(16)}, 0.2)`;
+            setTimeout(() => {
+                overlayElement.style.backgroundColor = 'transparent';
+            }, 100);
+            
+            // Create collection particles
+            for (let i = 0; i < 15; i++) {
+                const particle = createRocketParticle();
+                particle.material.color.setHex(powerUp.type.color);
+                particle.position.copy(powerUp.position);
+                particle.velocity.set(
+                    (Math.random() - 0.5) * 8,
+                    Math.random() * 8,
+                    (Math.random() - 0.5) * 8
+                );
+                scene.add(particle);
+                gameState.projectiles.push(particle);
+            }
+        }
+    });
+
     // Only render if not in start state
     if (gameState.state !== 'start') {
         renderer.render(scene, camera);
@@ -1040,4 +1116,54 @@ initializeLevelElements();
 requestAnimationFrame(gameLoop);
 
 // Log initialization success
-console.log('Three.js scene initialized successfully with clouds'); 
+console.log('Three.js scene initialized successfully with clouds');
+
+// Create power-up mesh
+function createPowerUpMesh(powerUpType) {
+    const group = new THREE.Group();
+    
+    // Core geometry
+    const coreGeometry = new THREE.OctahedronGeometry(0.5, 0);
+    const coreMaterial = new THREE.MeshStandardMaterial({
+        color: powerUpType.color,
+        metalness: 0.7,
+        roughness: 0.3,
+        emissive: powerUpType.color,
+        emissiveIntensity: 0.5
+    });
+    const core = new THREE.Mesh(coreGeometry, coreMaterial);
+    group.add(core);
+    
+    // Outer glow
+    const glowGeometry = new THREE.OctahedronGeometry(0.7, 0);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+        color: powerUpType.color,
+        transparent: true,
+        opacity: 0.3
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    group.add(glow);
+    
+    // Particles
+    const particleCount = 5;
+    for (let i = 0; i < particleCount; i++) {
+        const particle = new THREE.Mesh(
+            new THREE.SphereGeometry(0.1, 4, 4),
+            new THREE.MeshBasicMaterial({
+                color: powerUpType.color,
+                transparent: true,
+                opacity: 0.5
+            })
+        );
+        
+        const angle = (i / particleCount) * Math.PI * 2;
+        particle.position.set(
+            Math.cos(angle) * 0.8,
+            Math.sin(angle) * 0.8,
+            0
+        );
+        group.add(particle);
+    }
+    
+    return group;
+} 
