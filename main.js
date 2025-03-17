@@ -285,6 +285,14 @@ startScreen.style.textAlign = 'center';
 startScreen.style.zIndex = '1000';
 startScreen.innerHTML = `
     <h1 style="color: white; margin-bottom: 20px;">Rocket Hamster Adventure</h1>
+    <div style="color: white; margin-bottom: 20px;">
+        <h2>Select Level:</h2>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin: 20px 0;">
+            <button class="level-button" data-level="training" style="padding: 10px; cursor: pointer;">Training Grounds</button>
+            <button class="level-button" data-level="cloud" style="padding: 10px; cursor: pointer;">Cloud City</button>
+            <button class="level-button" data-level="sunset" style="padding: 10px; cursor: pointer;">Sunset Challenge</button>
+        </div>
+    </div>
     <p style="color: white; margin-bottom: 20px;">
         WASD - Move<br>
         SPACE - Jump<br>
@@ -295,6 +303,41 @@ startScreen.innerHTML = `
     <button id="startButton" style="padding: 10px 20px; margin: 5px; cursor: pointer; font-size: 18px;">Start Game</button>
 `;
 document.body.appendChild(startScreen);
+
+// Add level selection handlers
+document.querySelectorAll('.level-button').forEach(button => {
+    button.addEventListener('click', () => {
+        // Update selected level visual feedback
+        document.querySelectorAll('.level-button').forEach(b => 
+            b.style.backgroundColor = '');
+        button.style.backgroundColor = '#4CAF50';
+        
+        // Set the level
+        levelManager.setLevel(button.dataset.level);
+    });
+});
+
+// Update the start button handler
+document.getElementById('startButton').addEventListener('click', () => {
+    // Initialize audio system
+    initAudioSystem();
+    
+    // Resume audio context if it exists
+    if (audioContext) {
+        audioContext.resume().then(() => {
+            console.log('AudioContext resumed successfully');
+        }).catch(error => {
+            console.error('Error resuming AudioContext:', error);
+        });
+    }
+    
+    // Hide start screen and start game
+    startScreen.style.display = 'none';
+    gameState.state = 'playing';
+    
+    // Initialize level
+    resetGame();
+});
 
 // Sound setup
 const audioListener = new THREE.AudioListener();
@@ -432,28 +475,6 @@ function playSound(soundType) {
     }
 }
 
-// Initialize audio context and sounds on user interaction
-document.getElementById('startButton').addEventListener('click', () => {
-    // Initialize audio system
-    initAudioSystem();
-    
-    // Resume audio context if it exists
-    if (audioContext) {
-        audioContext.resume().then(() => {
-            console.log('AudioContext resumed successfully');
-        }).catch(error => {
-            console.error('Error resuming AudioContext:', error);
-        });
-    }
-    
-    // Hide start screen and start game
-    startScreen.style.display = 'none';
-    gameState.state = 'playing';
-    
-    // Initialize level
-    resetGame();
-});
-
 // Modify the handleClick function to use the new playSound function
 function handleClick(event) {
     if (gameState.state !== 'playing') return;
@@ -574,9 +595,34 @@ levelCompleteScreen.innerHTML = `
 `;
 document.body.appendChild(levelCompleteScreen);
 
+// Create UI container
+const uiContainer = document.createElement('div');
+uiContainer.id = 'ui-container';
+uiContainer.style.position = 'fixed';
+uiContainer.style.top = '20px';
+uiContainer.style.left = '20px';
+uiContainer.style.color = 'white';
+uiContainer.style.fontFamily = 'Arial, sans-serif';
+document.body.appendChild(uiContainer);
+
 // Create UI elements
-const scoreElement = document.getElementById('score');
-const resourceElement = document.getElementById('fuel');
+const scoreElement = document.createElement('div');
+scoreElement.id = 'score';
+scoreElement.style.fontSize = '20px';
+scoreElement.style.width = '200px';
+scoreElement.style.marginBottom = '10px';
+uiContainer.appendChild(scoreElement);
+
+const resourceElement = document.createElement('div');
+resourceElement.id = 'fuel';
+resourceElement.style.fontSize = '18px';
+resourceElement.style.marginBottom = '10px';
+uiContainer.appendChild(resourceElement);
+
+const seedsElement = document.createElement('div');
+seedsElement.id = 'seeds';
+seedsElement.style.fontSize = '18px';
+uiContainer.appendChild(seedsElement);
 
 // Create overlay for visual effects
 const overlayElement = document.createElement('div');
@@ -654,10 +700,6 @@ function updateObstacles(currentTime) {
     });
 }
 
-// Modify score display to show level info
-scoreElement.style.fontSize = '20px';
-scoreElement.style.width = '200px';
-
 function updateUI() {
     const currentLevel = levelManager.getCurrentLevel();
     scoreElement.innerHTML = `
@@ -665,7 +707,8 @@ function updateUI() {
         Score: ${gameState.score} / ${currentLevel.targetScore}<br>
         High Score: ${levelManager.highScores.get(currentLevel.id) || 0}
     `;
-    resourceElement.textContent = `Fuel: ${Math.round(gameState.player.fuel)}% | Seeds: ${gameState.player.seeds}`;
+    resourceElement.textContent = `Fuel: ${Math.round(gameState.player.fuel)}%`;
+    seedsElement.textContent = `Seeds: ${gameState.player.seeds}`;
 }
 
 // Add level complete handling
@@ -688,6 +731,12 @@ function checkLevelComplete() {
 // Handle next level button
 document.getElementById('nextLevelButton').addEventListener('click', () => {
     if (levelManager.nextLevel()) {
+        // Update URL when moving to next level
+        const currentLevel = levelManager.getCurrentLevel();
+        const url = new URL(window.location);
+        url.searchParams.set('level', currentLevel.urlName);
+        window.history.pushState({}, '', url);
+        
         levelCompleteScreen.style.display = 'none';
         gameState.state = 'playing';
         resetGame();
