@@ -65,6 +65,7 @@ const gameState = {
     score: 0,
     state: 'start', // start, playing, paused, gameover, levelComplete
     level: 1,
+    worldPosition: 0,
     keys: {
         forward: false,
         backward: false,
@@ -93,9 +94,26 @@ const gameState = {
     projectiles: [],
     collectibles: [],
     obstacles: [],
+    birds: [],
+    scenery: {
+        mountains: [],
+        trees: [],
+        lastGeneratedPosition: 0,
+        generationDistance: 50
+    },
+    combo: {
+        count: 0,
+        timer: 0,
+        maxTime: 2.0, // Time window for maintaining combo
+        multiplier: 1,
+        lastPosition: new THREE.Vector3()
+    },
     effects: {
         screenShake: 0,
-        fadeOpacity: 0
+        fadeOpacity: 0,
+        comboText: null,
+        comboFlash: 0,
+        explosions: []
     }
 };
 
@@ -671,6 +689,25 @@ seedsElement.id = 'seeds';
 seedsElement.style.fontSize = '18px';
 uiContainer.appendChild(seedsElement);
 
+// Create combo text element
+const comboText = document.createElement('div');
+comboText.style.position = 'fixed';
+comboText.style.top = '50%';
+comboText.style.left = '50%';
+comboText.style.transform = 'translate(-50%, -50%)';
+comboText.style.color = 'white';
+comboText.style.fontSize = '48px';
+comboText.style.fontWeight = 'bold';
+comboText.style.textShadow = '0 0 10px rgba(255, 165, 0, 1)';
+comboText.style.opacity = '0';
+comboText.style.transition = 'opacity 0.3s, font-size 0.3s';
+comboText.style.pointerEvents = 'none';
+comboText.style.zIndex = '1000';
+document.body.appendChild(comboText);
+
+// Store combo text element in gameState
+gameState.effects.comboText = comboText;
+
 // Create power-ups UI element
 const powerUpsElement = document.createElement('div');
 powerUpsElement.id = 'power-ups';
@@ -912,7 +949,119 @@ canvas.addEventListener('touchstart', (e) => {
 
 // Modify initializeLevelElements to start appropriate music
 function initializeLevelElements() {
-    // ... existing initialization code ...
+    // Clear existing elements
+    gameState.collectibles.forEach(c => scene.remove(c));
+    gameState.collectibles.length = 0;
+    gameState.obstacles.forEach(o => scene.remove(o));
+    gameState.obstacles.length = 0;
+    powerUpManager.powerUpPool.forEach(p => p.mesh && scene.remove(p.mesh));
+    powerUpManager.powerUpPool.length = 0;
+
+    const currentLevel = levelManager.getCurrentLevel();
+
+    // Set environment
+    scene.background = new THREE.Color(currentLevel.environment.skyColor);
+    ground.material.color.setHex(currentLevel.environment.groundColor);
+    if (currentLevel.environment.fogDensity > 0) {
+        scene.fog = new THREE.FogExp2(currentLevel.environment.skyColor, currentLevel.environment.fogDensity);
+    } else {
+        scene.fog = null;
+    }
+
+    // Add collectibles
+    const collectiblePositions = levelManager.getCollectiblePositions();
+    collectiblePositions.forEach(pos => {
+        const collectible = createCollectibleSeed(pos.x, pos.y, pos.z);
+        gameState.collectibles.push(collectible);
+        scene.add(collectible);
+    });
+
+    // Add power-ups
+    currentLevel.powerUps.forEach(powerUp => {
+        const type = POWERUP_TYPES[powerUp.type];
+        if (type) {
+            const mesh = createPowerUpMesh(type);
+            mesh.position.set(powerUp.x, powerUp.y, powerUp.z);
+            scene.add(mesh);
+            powerUpManager.powerUpPool.push({
+                type: type,
+                position: mesh.position,
+                mesh: mesh,
+                collected: false
+            });
+        }
+    });
+
+    // Add obstacles with enhanced visuals and behaviors
+    currentLevel.obstacles.forEach(obs => {
+        // Create obstacle mesh with enhanced materials
+        const geometry = new THREE.BoxGeometry(obs.w, obs.h, obs.d);
+        const material = new THREE.MeshStandardMaterial({
+            color: 0xFF4444,
+            metalness: 0.6,
+            roughness: 0.4,
+            emissive: 0xFF0000,
+            emissiveIntensity: 0.2
+        });
+        const obstacle = new THREE.Mesh(geometry, material);
+        
+        // Add glow effect
+        const glowGeometry = new THREE.BoxGeometry(obs.w + 0.2, obs.h + 0.2, obs.d + 0.2);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0xFF6666,
+            transparent: true,
+            opacity: 0.3
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        obstacle.add(glow);
+
+        // Position and setup
+        obstacle.position.set(obs.x, obs.y + obs.h/2, obs.z);
+        obstacle.userData.type = 'obstacle';
+        obstacle.userData.boundingBox = new THREE.Box3().setFromObject(obstacle);
+        
+        // Add movement properties if specified
+        if (obs.moving) {
+            obstacle.userData.moving = true;
+            obstacle.userData.startPos = obstacle.position.clone();
+            obstacle.userData.speed = obs.speed || 1;
+            obstacle.userData.time = Math.random() * Math.PI * 2; // Random start phase
+            
+            // Add warning particles
+            const particleSystem = new THREE.Group();
+            for (let i = 0; i < 5; i++) {
+                const particle = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.1, 4, 4),
+                    new THREE.MeshBasicMaterial({
+                        color: 0xFF0000,
+                        transparent: true,
+                        opacity: 0.7
+                    })
+                );
+                const angle = (i / 5) * Math.PI * 2;
+                particle.position.set(
+                    Math.cos(angle) * (obs.w/2 + 0.3),
+                    obs.h/2,
+                    Math.sin(angle) * (obs.d/2 + 0.3)
+                );
+                particleSystem.add(particle);
+            }
+            obstacle.add(particleSystem);
+            
+            // Animate warning particles
+            function animateParticles() {
+                particleSystem.children.forEach((particle, i) => {
+                    particle.material.opacity = 0.3 + Math.sin(Date.now() * 0.005 + i) * 0.4;
+                });
+                requestAnimationFrame(animateParticles);
+            }
+            animateParticles();
+        }
+
+        // Add to game state and scene
+        gameState.obstacles.push(obstacle);
+        scene.add(obstacle);
+    });
 
     // Start level-specific music
     const musicTracks = {
@@ -920,7 +1069,11 @@ function initializeLevelElements() {
         2: MUSIC_TRACKS.CLOUD_CITY,
         3: MUSIC_TRACKS.SUNSET
     };
-    playBackgroundMusic(musicTracks[levelManager.currentLevel]);
+    playBackgroundMusic(musicTracks[currentLevel.id]);
+
+    // Reset player position
+    hamster.position.set(0, 2, 0);
+    gameState.player.velocity.set(0, 0, 0);
 }
 
 // Update game loop to handle moving obstacles
@@ -930,16 +1083,44 @@ function updateObstacles(currentTime) {
             obstacle.userData.time += gameState.deltaTime;
             const t = obstacle.userData.time * obstacle.userData.speed;
             
-            // Create a circular motion
-            const radius = 5;
-            const x = obstacle.userData.startPos.x + Math.cos(t) * radius;
-            const z = obstacle.userData.startPos.z + Math.sin(t) * radius;
+            // Get the obstacle's level index (0-based)
+            const levelIndex = levelManager.getCurrentLevel().id - 1;
             
-            obstacle.position.x = x;
-            obstacle.position.z = z;
+            // Different movement patterns based on level
+            switch(levelIndex) {
+                case 0: // Training Grounds - Simple circular motion
+                    const radius = 5;
+                    obstacle.position.x = obstacle.userData.startPos.x + Math.cos(t) * radius;
+                    obstacle.position.z = obstacle.userData.startPos.z + Math.sin(t) * radius;
+                    break;
+                    
+                case 1: // Cloud City - Figure-8 pattern
+                    const scale = 4;
+                    obstacle.position.x = obstacle.userData.startPos.x + Math.sin(t) * scale;
+                    obstacle.position.z = obstacle.userData.startPos.z + Math.sin(t * 2) * (scale / 2);
+                    obstacle.position.y = obstacle.userData.startPos.y + Math.cos(t) * (scale / 3);
+                    break;
+                    
+                case 2: // Sunset Challenge - Complex spiral pattern
+                    const spiralRadius = 3 + Math.sin(t * 0.5) * 2;
+                    const heightOffset = Math.cos(t * 0.3) * 2;
+                    obstacle.position.x = obstacle.userData.startPos.x + Math.cos(t) * spiralRadius;
+                    obstacle.position.z = obstacle.userData.startPos.z + Math.sin(t) * spiralRadius;
+                    obstacle.position.y = obstacle.userData.startPos.y + heightOffset;
+                    
+                    // Add rotation for more challenge
+                    obstacle.rotation.y = t;
+                    break;
+            }
             
-            // Update bounding box
+            // Update bounding box for collision detection
             obstacle.userData.boundingBox.setFromObject(obstacle);
+            
+            // Update warning particles
+            if (obstacle.children.length > 1) { // First child is glow, second is particle system
+                const particleSystem = obstacle.children[1];
+                particleSystem.rotation.y = -obstacle.rotation.y; // Counter-rotate particles
+            }
         }
     });
 }
@@ -964,6 +1145,11 @@ function updateUI() {
         powerUpsElement.style.display = 'block';
     } else {
         powerUpsElement.style.display = 'none';
+    }
+
+    // Add combo multiplier to score display
+    if (gameState.combo.count > 0) {
+        scoreElement.innerHTML += `<br>Combo: x${gameState.combo.multiplier}`;
     }
 }
 
@@ -1059,11 +1245,26 @@ function gameLoop(currentTime) {
     gameState.deltaTime = (currentTime - gameState.time) / 1000;
     gameState.time = currentTime;
 
+    // Update world generation
+    updateWorld();
+    
+    // Update birds
+    updateBirds();
+    
+    // Update explosions
+    updateExplosions();
+
     // Update hamster position based on input
     const moveSpeed = gameState.player.speed * gameState.deltaTime;
     
     // Apply movement
-    if (gameState.keys.forward) hamster.position.z -= moveSpeed;
+    if (gameState.keys.forward) {
+        hamster.position.z -= moveSpeed;
+        // Generate new world as player moves forward
+        if (hamster.position.z < gameState.scenery.lastGeneratedPosition - gameState.scenery.generationDistance) {
+            generateNewWorldChunk();
+        }
+    }
     if (gameState.keys.backward) hamster.position.z += moveSpeed;
     if (gameState.keys.left) hamster.position.x -= moveSpeed;
     if (gameState.keys.right) hamster.position.x += moveSpeed;
@@ -1177,17 +1378,19 @@ function gameLoop(currentTime) {
         // Check collection
         if (seed.visible && hamster.position.distanceTo(seed.position) < 1) {
             seed.visible = false;
-            gameState.score += 100;
+            const baseScore = 100;
+            const comboScore = baseScore * gameState.combo.multiplier;
+            gameState.score += comboScore;
             gameState.player.seeds = Math.min(gameState.player.maxSeeds, gameState.player.seeds + 3);
+            
+            // Update combo
+            incrementCombo(seed.position);
             
             playSound('collect');
             gameState.effects.screenShake = 0.1;
             
-            // Flash overlay
-            overlayElement.style.backgroundColor = 'rgba(255, 215, 0, 0.2)';
-            setTimeout(() => {
-                overlayElement.style.backgroundColor = 'transparent';
-            }, 100);
+            // Show score popup
+            showScorePopup(comboScore, seed.position);
             
             // Create collection effect
             for (let i = 0; i < 10; i++) {
@@ -1332,12 +1535,95 @@ function gameLoop(currentTime) {
     );
     lights.spotlight.target = hamster;
 
+    // Update combo system
+    updateCombo(gameState.deltaTime);
+    
+    // Update combo text flash effect
+    if (gameState.effects.comboFlash > 0) {
+        gameState.effects.comboFlash -= gameState.deltaTime;
+        const flash = Math.sin(gameState.effects.comboFlash * 20) * 0.5 + 0.5;
+        gameState.effects.comboText.style.textShadow = 
+            `0 0 ${10 + flash * 20}px rgba(255, ${flash * 255}, 0, ${flash})`;
+    }
+
+    // Check bird collisions
+    gameState.birds.forEach(bird => {
+        if (!gameState.player.isInvulnerable && hamster.position.distanceTo(bird.position) < 1) {
+            createExplosion(hamster.position);
+            playSound('hit');
+            gameState.effects.screenShake = 0.3;
+            
+            // Make player invulnerable
+            gameState.player.isInvulnerable = true;
+            gameState.player.invulnerableTime = 1.5;
+            gameState.player.flashTime = 0;
+            
+            // Push player away from bird
+            const pushDirection = hamster.position.clone().sub(bird.position).normalize();
+            gameState.player.velocity.add(pushDirection.multiplyScalar(15));
+        }
+    });
+
     // Only render if not in start state
     if (gameState.state !== 'start') {
         renderer.render(scene, camera);
     }
 
     requestAnimationFrame(gameLoop);
+}
+
+function generateNewWorldChunk() {
+    const chunkSize = gameState.scenery.generationDistance;
+    const newZ = gameState.scenery.lastGeneratedPosition - chunkSize;
+    
+    // Add mountains
+    for (let i = 0; i < 3; i++) {
+        const x = (Math.random() - 0.5) * 100;
+        const height = 10 + Math.random() * 20;
+        const mountain = createMountain(x, newZ, height);
+        scene.add(mountain);
+        gameState.scenery.mountains.push(mountain);
+    }
+    
+    // Add trees
+    for (let i = 0; i < 10; i++) {
+        const x = (Math.random() - 0.5) * 80;
+        const z = newZ + (Math.random() - 0.5) * 20;
+        const tree = createTree(x, z);
+        scene.add(tree);
+        gameState.scenery.trees.push(tree);
+    }
+    
+    // Add birds
+    if (Math.random() < 0.7) {
+        const bird = createBird();
+        bird.position.set(
+            (Math.random() - 0.5) * 40,
+            10 + Math.random() * 10,
+            newZ + (Math.random() - 0.5) * 20
+        );
+        scene.add(bird);
+        gameState.birds.push(bird);
+    }
+    
+    // Update last generated position
+    gameState.scenery.lastGeneratedPosition = newZ;
+    
+    // Clean up old scenery
+    const cleanupZ = hamster.position.z + 100;
+    const cleanup = (array, removeCallback) => {
+        return array.filter(item => {
+            if (item.position.z > cleanupZ) {
+                removeCallback(item);
+                return false;
+            }
+            return true;
+        });
+    };
+    
+    gameState.scenery.mountains = cleanup(gameState.scenery.mountains, mountain => scene.remove(mountain));
+    gameState.scenery.trees = cleanup(gameState.scenery.trees, tree => scene.remove(tree));
+    gameState.birds = cleanup(gameState.birds, bird => scene.remove(bird));
 }
 
 // Initialize first level
@@ -1538,4 +1824,436 @@ class ParticleSystem {
     }
 }
 
-const particleSystem = new ParticleSystem(); 
+const particleSystem = new ParticleSystem();
+
+// Add combo system functions
+function updateCombo(deltaTime) {
+    if (gameState.combo.count > 0) {
+        gameState.combo.timer -= deltaTime;
+        if (gameState.combo.timer <= 0) {
+            resetCombo();
+        }
+    }
+}
+
+function incrementCombo(position) {
+    const distance = position.distanceTo(gameState.combo.lastPosition);
+    const isQuickAction = distance > 2; // Require some movement between actions
+    
+    if (isQuickAction) {
+        gameState.combo.count++;
+        gameState.combo.timer = gameState.combo.maxTime;
+        gameState.combo.multiplier = Math.min(4, 1 + Math.floor(gameState.combo.count / 5));
+        gameState.combo.lastPosition.copy(position);
+        
+        // Update combo text
+        gameState.effects.comboText.textContent = `${gameState.combo.count}x COMBO!`;
+        gameState.effects.comboText.style.opacity = '1';
+        gameState.effects.comboText.style.fontSize = `${48 + gameState.combo.count * 2}px`;
+        gameState.effects.comboFlash = 0.5;
+        
+        // Add visual effects based on combo level
+        if (gameState.combo.count >= 10) {
+            createComboEffect(position);
+        }
+    }
+}
+
+function resetCombo() {
+    gameState.combo.count = 0;
+    gameState.combo.timer = 0;
+    gameState.combo.multiplier = 1;
+    gameState.effects.comboText.style.opacity = '0';
+}
+
+function createComboEffect(position) {
+    const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00];
+    const numParticles = 20 + gameState.combo.count;
+    
+    for (let i = 0; i < numParticles; i++) {
+        const particle = createRocketParticle();
+        particle.material.color.setHex(colors[i % colors.length]);
+        particle.position.copy(position);
+        
+        // Create spiral pattern
+        const angle = (i / numParticles) * Math.PI * 2;
+        const speed = 10 + gameState.combo.count * 0.5;
+        particle.velocity.set(
+            Math.cos(angle) * speed,
+            speed * 0.5,
+            Math.sin(angle) * speed
+        );
+        
+        scene.add(particle);
+        gameState.projectiles.push(particle);
+    }
+    
+    // Add screen shake based on combo level
+    gameState.effects.screenShake = Math.min(0.5, 0.1 + gameState.combo.count * 0.02);
+    
+    // Play combo sound
+    const comboNote = 440 * Math.pow(2, gameState.combo.count / 12);
+    playSound('collect', comboNote);
+}
+
+// Add score popup function
+function showScorePopup(score, position) {
+    const popup = document.createElement('div');
+    popup.style.position = 'fixed';
+    popup.style.color = 'white';
+    popup.style.fontSize = '24px';
+    popup.style.fontWeight = 'bold';
+    popup.style.textShadow = '0 0 5px #000';
+    popup.style.pointerEvents = 'none';
+    popup.textContent = `+${score}`;
+    
+    // Convert 3D position to screen coordinates
+    const screenPosition = position.clone().project(camera);
+    const x = (screenPosition.x + 1) * window.innerWidth / 2;
+    const y = (-screenPosition.y + 1) * window.innerHeight / 2;
+    
+    popup.style.left = `${x}px`;
+    popup.style.top = `${y}px`;
+    document.body.appendChild(popup);
+    
+    // Animate and remove
+    let time = 0;
+    function animate() {
+        time += 0.016;
+        popup.style.transform = `translateY(${-time * 100}px) scale(${1 + time * 0.5})`;
+        popup.style.opacity = 1 - time;
+        
+        if (time < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            document.body.removeChild(popup);
+        }
+    }
+    animate();
+}
+
+// Create bird obstacle
+function createBird() {
+    const bird = new THREE.Group();
+    
+    // Bird body
+    const bodyGeometry = new THREE.ConeGeometry(0.3, 1, 4);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x4444ff });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.rotation.x = Math.PI / 2;
+    bird.add(body);
+    
+    // Wings
+    const wingGeometry = new THREE.PlaneGeometry(1, 0.5);
+    const wingMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x2222ff,
+        side: THREE.DoubleSide
+    });
+    
+    const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    leftWing.position.set(-0.5, 0, 0);
+    bird.add(leftWing);
+    
+    const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    rightWing.position.set(0.5, 0, 0);
+    bird.add(rightWing);
+    
+    // Add animation properties
+    bird.userData.wingAngle = 0;
+    bird.userData.type = 'bird';
+    bird.userData.health = 2;
+    
+    return bird;
+}
+
+// Create explosion effect
+function createExplosion(position, color = 0xff4444) {
+    const particleCount = 20;
+    const particles = [];
+    
+    for (let i = 0; i < particleCount; i++) {
+        const particle = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4),
+            new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 1
+            })
+        );
+        
+        particle.position.copy(position);
+        particle.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 10,
+            (Math.random() - 0.5) * 10,
+            (Math.random() - 0.5) * 10
+        );
+        particle.lifetime = 1 + Math.random();
+        
+        scene.add(particle);
+        particles.push(particle);
+    }
+    
+    // Add to game state for updating
+    gameState.effects.explosions.push({
+        particles: particles,
+        time: 0
+    });
+}
+
+// Create mountain for scenery
+function createMountain(x, z, height) {
+    const geometry = new THREE.ConeGeometry(height/2, height, 4);
+    const material = new THREE.MeshStandardMaterial({
+        color: 0x808080,
+        roughness: 0.8
+    });
+    const mountain = new THREE.Mesh(geometry, material);
+    mountain.position.set(x, height/2, z);
+    return mountain;
+}
+
+// Create tree for scenery
+function createTree(x, z) {
+    const tree = new THREE.Group();
+    
+    // Trunk
+    const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.3, 2, 6);
+    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+    trunk.position.y = 1;
+    tree.add(trunk);
+    
+    // Leaves
+    const leavesGeometry = new THREE.ConeGeometry(1, 2, 6);
+    const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+    const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+    leaves.position.y = 2.5;
+    tree.add(leaves);
+    
+    tree.position.set(x, 0, z);
+    return tree;
+}
+
+// Add world update function
+function updateWorld() {
+    // Update cloud positions and rotations
+    clouds.forEach((cloud, index) => {
+        const speed = 0.2 + (index % 3) * 0.1;
+        const amplitude = 0.5 + (index % 2) * 0.5;
+        
+        // Move clouds in a gentle wave pattern
+        cloud.position.x += Math.sin(gameState.time * 0.001 * speed) * 0.01;
+        cloud.position.y += Math.cos(gameState.time * 0.001 * speed) * 0.005;
+        
+        // Slowly rotate clouds
+        cloud.rotation.y += 0.001 * speed;
+        
+        // Wrap clouds around when they move too far
+        if (cloud.position.x > 50) cloud.position.x = -50;
+        if (cloud.position.x < -50) cloud.position.x = 50;
+    });
+    
+    // Update mountains and trees for parallax effect
+    const parallaxSpeed = 0.1;
+    gameState.scenery.mountains.forEach(mountain => {
+        mountain.position.x += Math.sin(gameState.time * 0.0005) * parallaxSpeed * 0.2;
+    });
+    
+    gameState.scenery.trees.forEach(tree => {
+        // Make trees sway gently
+        const swayAmount = 0.02;
+        const swaySpeed = 0.001;
+        tree.rotation.z = Math.sin(gameState.time * swaySpeed + tree.position.x) * swayAmount;
+    });
+    
+    // Update birds
+    gameState.birds.forEach(bird => {
+        // Update wing animation
+        bird.userData.wingAngle += gameState.deltaTime * 10;
+        const wingRotation = Math.sin(bird.userData.wingAngle) * 0.5;
+        
+        // Apply wing rotation
+        if (bird.children[1] && bird.children[2]) {
+            bird.children[1].rotation.z = wingRotation; // Left wing
+            bird.children[2].rotation.z = -wingRotation; // Right wing
+        }
+        
+        // Bird movement pattern
+        const time = gameState.time * 0.001;
+        const radius = 10;
+        const height = 5;
+        
+        // Calculate new position
+        const newX = bird.userData.startPos ? 
+            bird.userData.startPos.x + Math.sin(time) * radius : 
+            bird.position.x;
+        const newY = bird.userData.startPos ? 
+            bird.userData.startPos.y + Math.cos(time * 0.5) * height : 
+            bird.position.y;
+        
+        // Store initial position if not set
+        if (!bird.userData.startPos) {
+            bird.userData.startPos = bird.position.clone();
+        }
+        
+        // Update position
+        bird.position.x = newX;
+        bird.position.y = newY;
+        
+        // Rotate bird based on movement direction
+        const targetRotation = Math.atan2(
+            bird.position.x - bird.userData.prevX,
+            bird.position.z - bird.userData.prevZ
+        );
+        bird.rotation.y = targetRotation;
+        
+        // Store previous position for next frame
+        bird.userData.prevX = bird.position.x;
+        bird.userData.prevZ = bird.position.z;
+    });
+}
+
+// Add bird update function
+function updateBirds() {
+    gameState.birds.forEach((bird, index) => {
+        // Update wing animation
+        bird.userData.wingAngle += gameState.deltaTime * 10;
+        const wingRotation = Math.sin(bird.userData.wingAngle) * 0.5;
+        
+        // Apply wing rotation
+        if (bird.children[1] && bird.children[2]) {
+            bird.children[1].rotation.z = wingRotation; // Left wing
+            bird.children[2].rotation.z = -wingRotation; // Right wing
+        }
+        
+        // Bird movement pattern
+        const time = gameState.time * 0.001;
+        const radius = 10;
+        const height = 5;
+        const forwardSpeed = 2;
+        
+        // Calculate new position
+        const newX = bird.userData.startPos ? 
+            bird.userData.startPos.x + Math.sin(time + index) * radius : 
+            bird.position.x;
+        const newY = bird.userData.startPos ? 
+            bird.userData.startPos.y + Math.cos(time * 0.5 + index) * height : 
+            bird.position.y;
+        const newZ = bird.position.z + forwardSpeed * gameState.deltaTime;
+        
+        // Store initial position if not set
+        if (!bird.userData.startPos) {
+            bird.userData.startPos = bird.position.clone();
+        }
+        
+        // Update position
+        bird.position.x = newX;
+        bird.position.y = newY;
+        bird.position.z = newZ;
+        
+        // Check for seed collisions
+        gameState.projectiles.forEach((projectile, projectileIndex) => {
+            if (!projectile.lifetime) { // Only check actual seeds, not particles
+                if (projectile.position.distanceTo(bird.position) < 1) {
+                    // Create hit effect
+                    createExplosion(projectile.position, 0x4444ff);
+                    
+                    // Remove the projectile
+                    scene.remove(projectile);
+                    gameState.projectiles.splice(projectileIndex, 1);
+                    
+                    // Damage the bird
+                    bird.userData.health--;
+                    
+                    // Visual feedback
+                    bird.material.emissive = new THREE.Color(0xff0000);
+                    setTimeout(() => {
+                        if (bird.material) {
+                            bird.material.emissive = new THREE.Color(0x000000);
+                        }
+                    }, 100);
+                    
+                    // If bird is defeated
+                    if (bird.userData.health <= 0) {
+                        // Create large explosion
+                        createExplosion(bird.position, 0x4444ff);
+                        
+                        // Add score
+                        const score = 500;
+                        gameState.score += score;
+                        showScorePopup(score, bird.position);
+                        
+                        // Remove bird
+                        scene.remove(bird);
+                        gameState.birds.splice(index, 1);
+                        
+                        // Play sound
+                        playSound('hit');
+                        
+                        // Screen shake
+                        gameState.effects.screenShake = 0.3;
+                    }
+                }
+            }
+        });
+        
+        // Update bird rotation based on movement
+        const direction = new THREE.Vector3(
+            bird.position.x - bird.userData.prevX,
+            0,
+            bird.position.z - bird.userData.prevZ
+        ).normalize();
+        
+        if (direction.length() > 0) {
+            const targetRotation = Math.atan2(direction.x, direction.z);
+            bird.rotation.y = targetRotation;
+        }
+        
+        // Store previous position for next frame
+        bird.userData.prevX = bird.position.x;
+        bird.userData.prevZ = bird.position.z;
+    });
+}
+
+// Add explosion update function
+function updateExplosions() {
+    if (!gameState.effects.explosions) {
+        gameState.effects.explosions = [];
+    }
+
+    // Update each explosion
+    for (let i = gameState.effects.explosions.length - 1; i >= 0; i--) {
+        const explosion = gameState.effects.explosions[i];
+        explosion.time += gameState.deltaTime;
+        
+        // Update particles
+        for (let j = explosion.particles.length - 1; j >= 0; j--) {
+            const particle = explosion.particles[j];
+            
+            // Update lifetime
+            particle.lifetime -= gameState.deltaTime;
+            
+            if (particle.lifetime <= 0) {
+                scene.remove(particle);
+                explosion.particles.splice(j, 1);
+                continue;
+            }
+            
+            // Update position
+            particle.position.add(
+                particle.velocity.clone().multiplyScalar(gameState.deltaTime)
+            );
+            
+            // Update opacity
+            particle.material.opacity = particle.lifetime;
+            
+            // Add gravity effect
+            particle.velocity.y -= 9.8 * gameState.deltaTime;
+        }
+        
+        // Remove explosion if all particles are gone
+        if (explosion.particles.length === 0) {
+            gameState.effects.explosions.splice(i, 1);
+        }
+    }
+}
