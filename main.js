@@ -3,6 +3,7 @@ const gameState = {
     time: 0,
     deltaTime: 0,
     score: 0,
+    state: 'start', // start, playing, paused, gameover
     keys: {
         forward: false,
         backward: false,
@@ -23,11 +24,18 @@ const gameState = {
         seeds: 10,
         maxSeeds: 10,
         seedReloadTime: 1,
-        lastSeedTime: 0
+        lastSeedTime: 0,
+        isInvulnerable: false,
+        invulnerableTime: 0,
+        flashTime: 0
     },
     projectiles: [],
     collectibles: [],
-    obstacles: []
+    obstacles: [],
+    effects: {
+        screenShake: 0,
+        fadeOpacity: 0
+    }
 };
 
 // Initialize clouds array
@@ -132,9 +140,24 @@ cloudLayers.forEach(layer => {
 
 // Create seed projectile
 function createSeed() {
-    const seedGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-    const seedMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Dark brown
+    const seedGeometry = new THREE.SphereGeometry(0.2, 8, 8); // Made seed bigger
+    const seedMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x8B4513,
+        emissive: 0x4B2006, // Added glow
+        emissiveIntensity: 0.5
+    });
     const seed = new THREE.Mesh(seedGeometry, seedMaterial);
+    
+    // Add trail effect
+    const trailGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+    const trailMaterial = new THREE.MeshBasicMaterial({
+        color: 0xA52A2A,
+        transparent: true,
+        opacity: 0.6
+    });
+    const trail = new THREE.Mesh(trailGeometry, trailMaterial);
+    seed.add(trail);
+    
     return seed;
 }
 
@@ -234,26 +257,155 @@ function handleKeyUp(event) {
     }
 }
 
-// Mouse click handler for seed shooting
+// Create start screen
+const startScreen = document.createElement('div');
+startScreen.style.position = 'absolute';
+startScreen.style.top = '50%';
+startScreen.style.left = '50%';
+startScreen.style.transform = 'translate(-50%, -50%)';
+startScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+startScreen.style.padding = '20px';
+startScreen.style.borderRadius = '10px';
+startScreen.style.textAlign = 'center';
+startScreen.style.zIndex = '1000';
+startScreen.innerHTML = `
+    <h1 style="color: white; margin-bottom: 20px;">Rocket Hamster Adventure</h1>
+    <p style="color: white; margin-bottom: 20px;">
+        WASD - Move<br>
+        SPACE - Jump<br>
+        SHIFT - Rocket Boost<br>
+        LEFT CLICK - Shoot Seeds<br>
+        ESC - Pause
+    </p>
+    <button id="startButton" style="padding: 10px 20px; margin: 5px; cursor: pointer; font-size: 18px;">Start Game</button>
+`;
+document.body.appendChild(startScreen);
+
+// Initialize audio context on user interaction
+document.getElementById('startButton').addEventListener('click', () => {
+    // Resume audio context
+    audioListener.context.resume().then(() => {
+        console.log('AudioContext resumed successfully');
+    });
+    
+    // Hide start screen and start game
+    startScreen.style.display = 'none';
+    gameState.state = 'playing';
+    
+    // Initialize level
+    resetGame();
+});
+
+// Sound setup
+const audioListener = new THREE.AudioListener();
+camera.add(audioListener);
+
+const soundEffects = {
+    jump: new THREE.Audio(audioListener),
+    boost: new THREE.Audio(audioListener),
+    collect: new THREE.Audio(audioListener),
+    shoot: new THREE.Audio(audioListener),
+    hit: new THREE.Audio(audioListener)
+};
+
+// Define audioLoader
+const audioLoader = new THREE.AudioLoader();
+
+// Function to load and set up a sound effect with error handling
+function loadSound(url, soundEffect, volume) {
+    return new Promise((resolve, reject) => {
+        audioLoader.load(
+            url,
+            (buffer) => {
+                try {
+                    soundEffect.setBuffer(buffer);
+                    soundEffect.setVolume(volume);
+                    soundEffect.setLoop(false);
+                    console.log(`Sound loaded successfully: ${url}`);
+                    resolve();
+                } catch (error) {
+                    console.error(`Error setting up sound: ${url}`, error);
+                    reject(error);
+                }
+            },
+            // Progress callback
+            (progress) => {
+                console.log(`Loading sound ${url}: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
+            },
+            // Error callback
+            (error) => {
+                console.error(`Error loading sound: ${url}`, error);
+                reject(error);
+            }
+        );
+    });
+}
+
+// Load all sound effects with better error handling
+Promise.all([
+    loadSound('https://cdn.freesound.org/previews/429/429593_6142149-lq.mp3', soundEffects.jump, 0.5),
+    loadSound('https://cdn.freesound.org/previews/362/362420_6142149-lq.mp3', soundEffects.boost, 0.3),
+    loadSound('https://cdn.freesound.org/previews/415/415760_6142149-lq.mp3', soundEffects.collect, 0.5),
+    loadSound('https://cdn.freesound.org/previews/369/369921_6142149-lq.mp3', soundEffects.shoot, 0.4),
+    loadSound('https://cdn.freesound.org/previews/331/331912_6142149-lq.mp3', soundEffects.hit, 0.6)
+]).then(() => {
+    console.log('All sounds loaded successfully');
+}).catch(error => {
+    console.error('Error loading sounds:', error);
+});
+
+// Modify the sound playing in handleClick
 function handleClick(event) {
+    if (gameState.state !== 'playing') return;
+    
     if (gameState.player.seeds > 0 && 
-        currentTime - gameState.player.lastSeedTime > gameState.player.seedReloadTime * 1000) {
+        gameState.time - gameState.player.lastSeedTime > gameState.player.seedReloadTime * 1000) {
         
-        const seed = createSeed();
-        seed.position.copy(hamster.position);
+        // Create multiple seeds in a spread pattern
+        const numSeeds = 5; // Increased to 5 seeds
+        const spreadAngle = Math.PI / 4; // 45-degree spread
         
-        // Calculate shooting direction based on camera
-        const shootDirection = new THREE.Vector3(0, 0, -1);
-        shootDirection.applyQuaternion(camera.quaternion);
+        for (let i = 0; i < numSeeds; i++) {
+            const seed = createSeed();
+            seed.position.copy(hamster.position);
+            seed.position.y += 0.5; // Start slightly above hamster
+            
+            // Calculate angle for this seed
+            const angle = (i / (numSeeds - 1) - 0.5) * spreadAngle;
+            
+            // Base direction is forward and up
+            const shootDirection = new THREE.Vector3(0, 1.5, -1).normalize();
+            
+            // Apply spread rotation
+            shootDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+            
+            // Add random variation
+            shootDirection.x += (Math.random() - 0.5) * 0.1;
+            shootDirection.y += Math.random() * 0.1;
+            
+            // Higher initial velocity
+            seed.velocity = shootDirection.multiplyScalar(40); // Increased velocity
+            
+            gameState.projectiles.push(seed);
+            scene.add(seed);
+        }
         
-        seed.velocity = shootDirection.multiplyScalar(20); // Seed speed
-        seed.velocity.y += 2; // Add upward arc
-        
-        gameState.projectiles.push(seed);
-        scene.add(seed);
+        // Play sound with better error handling
+        try {
+            if (soundEffects.shoot.buffer) {
+                const shootSound = soundEffects.shoot.clone();
+                shootSound.setVolume(0.4);
+                shootSound.play().catch(error => {
+                    console.error('Error playing shoot sound:', error);
+                });
+            }
+        } catch (error) {
+            console.error('Error with shoot sound:', error);
+        }
         
         gameState.player.seeds--;
-        gameState.player.lastSeedTime = currentTime;
+        gameState.player.lastSeedTime = gameState.time;
+        gameState.player.seedReloadTime = 0.2; // Even faster shooting
     }
 }
 
@@ -381,8 +533,78 @@ function updateUI() {
     resourceElement.textContent = `Fuel: ${Math.round(gameState.player.fuel)}% | Seeds: ${gameState.player.seeds}`;
 }
 
-// Game loop with varied cloud movement and hamster physics
+// Create visual effects overlay
+const overlayElement = document.createElement('div');
+overlayElement.style.position = 'absolute';
+overlayElement.style.top = '0';
+overlayElement.style.left = '0';
+overlayElement.style.width = '100%';
+overlayElement.style.height = '100%';
+overlayElement.style.pointerEvents = 'none';
+overlayElement.style.transition = 'background-color 0.3s';
+document.body.appendChild(overlayElement);
+
+// Create pause menu
+const pauseMenu = document.createElement('div');
+pauseMenu.style.position = 'absolute';
+pauseMenu.style.top = '50%';
+pauseMenu.style.left = '50%';
+pauseMenu.style.transform = 'translate(-50%, -50%)';
+pauseMenu.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+pauseMenu.style.padding = '20px';
+pauseMenu.style.borderRadius = '10px';
+pauseMenu.style.display = 'none';
+pauseMenu.style.textAlign = 'center';
+pauseMenu.innerHTML = `
+    <h2 style="color: white; margin-bottom: 20px;">Game Paused</h2>
+    <button id="resumeButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Resume</button>
+    <button id="restartButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Restart</button>
+`;
+document.body.appendChild(pauseMenu);
+
+// Pause game handlers
+document.getElementById('resumeButton').addEventListener('click', () => {
+    gameState.state = 'playing';
+    pauseMenu.style.display = 'none';
+});
+
+document.getElementById('restartButton').addEventListener('click', () => {
+    resetGame();
+    gameState.state = 'playing';
+    pauseMenu.style.display = 'none';
+});
+
+// Reset game function
+function resetGame() {
+    gameState.score = 0;
+    gameState.player.fuel = gameState.player.maxFuel;
+    gameState.player.seeds = gameState.player.maxSeeds;
+    hamster.position.set(0, 2, 0);
+    gameState.player.velocity.set(0, 0, 0);
+    initializeLevelElements();
+}
+
+// Add escape key handler for pause
+window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        if (gameState.state === 'playing') {
+            gameState.state = 'paused';
+            pauseMenu.style.display = 'block';
+        } else if (gameState.state === 'paused') {
+            gameState.state = 'playing';
+            pauseMenu.style.display = 'none';
+        }
+    }
+});
+
+// Modify game loop to include effects and state management
 function gameLoop(currentTime) {
+    // Skip updates if paused
+    if (gameState.state === 'paused') {
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
     // First frame initialization
     if (!gameState.time) {
         gameState.time = currentTime;
@@ -471,7 +693,18 @@ function gameLoop(currentTime) {
             projectile.material.opacity = projectile.lifetime / 0.5;
         } else {
             // Seed update
-            projectile.velocity.y -= gameState.player.gravity * gameState.deltaTime;
+            projectile.velocity.y -= gameState.player.gravity * 1.5 * gameState.deltaTime; // Increased gravity effect
+            
+            // Rotate seed for better visual
+            projectile.rotation.x += 5 * gameState.deltaTime;
+            projectile.rotation.z += 3 * gameState.deltaTime;
+            
+            // Update trail
+            if (projectile.children[0]) {
+                projectile.children[0].scale.setScalar(
+                    Math.max(0.1, projectile.velocity.length() * 0.05)
+                );
+            }
         }
         
         projectile.position.add(
@@ -502,6 +735,15 @@ function gameLoop(currentTime) {
             gameState.score += 100;
             gameState.player.seeds = Math.min(gameState.player.maxSeeds, gameState.player.seeds + 3);
             
+            soundEffects.collect.play();
+            gameState.effects.screenShake = 0.1;
+            
+            // Flash overlay
+            overlayElement.style.backgroundColor = 'rgba(255, 215, 0, 0.2)';
+            setTimeout(() => {
+                overlayElement.style.backgroundColor = 'transparent';
+            }, 100);
+            
             // Create collection effect
             for (let i = 0; i < 10; i++) {
                 const particle = createRocketParticle();
@@ -521,7 +763,21 @@ function gameLoop(currentTime) {
     // Check obstacle collisions
     gameState.obstacles.forEach(obstacle => {
         const hamsterBox = new THREE.Box3().setFromObject(hamster);
-        if (hamsterBox.intersectsBox(obstacle.userData.boundingBox)) {
+        if (!gameState.player.isInvulnerable && hamsterBox.intersectsBox(obstacle.userData.boundingBox)) {
+            soundEffects.hit.play();
+            gameState.effects.screenShake = 0.3;
+            
+            // Flash overlay
+            overlayElement.style.backgroundColor = 'rgba(255, 0, 0, 0.3)';
+            setTimeout(() => {
+                overlayElement.style.backgroundColor = 'transparent';
+            }, 100);
+            
+            // Make player invulnerable briefly
+            gameState.player.isInvulnerable = true;
+            gameState.player.invulnerableTime = 1.5;
+            gameState.player.flashTime = 0;
+            
             // Collision response
             const pushDirection = hamster.position.clone().sub(obstacle.position).normalize();
             hamster.position.add(pushDirection.multiplyScalar(0.1));
@@ -529,17 +785,51 @@ function gameLoop(currentTime) {
         }
     });
 
+    // Update screen shake effect
+    if (gameState.effects.screenShake > 0) {
+        const shakeIntensity = gameState.effects.screenShake;
+        camera.position.x += (Math.random() - 0.5) * shakeIntensity;
+        camera.position.y += (Math.random() - 0.5) * shakeIntensity;
+        gameState.effects.screenShake *= 0.9;
+    }
+
+    // Update player invulnerability
+    if (gameState.player.isInvulnerable) {
+        gameState.player.invulnerableTime -= gameState.deltaTime;
+        gameState.player.flashTime += gameState.deltaTime * 10;
+        
+        // Flash effect
+        hamster.traverse(child => {
+            if (child.material) {
+                child.material.transparent = true;
+                child.material.opacity = Math.sin(gameState.player.flashTime) * 0.5 + 0.5;
+            }
+        });
+        
+        if (gameState.player.invulnerableTime <= 0) {
+            gameState.player.isInvulnerable = false;
+            hamster.traverse(child => {
+                if (child.material) {
+                    child.material.transparent = false;
+                    child.material.opacity = 1;
+                }
+            });
+        }
+    }
+
     // Update UI
     updateUI();
 
-    // Render scene
-    renderer.render(scene, camera);
+    // Only render and update if not in start state
+    if (gameState.state !== 'start') {
+        renderer.render(scene, camera);
+    }
 
     // Continue game loop
     requestAnimationFrame(gameLoop);
 }
 
-// Initialize level elements
+// Initialize level elements but don't start game loop until user clicks start
 initializeLevelElements();
 
 // Start game loop
