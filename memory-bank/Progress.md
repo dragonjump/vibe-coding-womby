@@ -62,11 +62,34 @@
   - Physics-based movement
   - Memory-efficient cleanup
 
+### Step 5: Basic Level Elements (Completed)
+- Added collectible system:
+  - Glowing golden seeds
+  - Floating animation
+  - Collection particles
+  - Seed reward (+3 seeds)
+  - Score reward (+100 points)
+- Implemented obstacles:
+  - Red barrier towers
+  - Collision detection
+  - Physics-based pushback
+  - Strategic placement
+- Created UI elements:
+  - Score display
+  - Fuel meter
+  - Seed counter
+  - Clean, readable design
+- Added level initialization:
+  - Circular seed pattern
+  - Four corner obstacles
+  - Memory management
+  - Easy reset capability
+
 ### Next Steps
-- Proceed to Step 5: Basic Level Elements
-- Need to add collectible seeds
-- Need to create simple obstacles
-- Need to implement basic score system
+- Proceed to Step 6: Polish and Feel
+- Need to add sound effects
+- Need to implement visual feedback
+- Need to add game state management
 
 ### Testing Notes
 - Character responds to WASD controls
@@ -76,3 +99,6 @@
 - Rocket boost activates with Shift
 - Seed shooting works with left click
 - Particle effects visible and performing well
+- Collectibles can be gathered
+- Obstacles provide proper collision
+- UI elements update correctly

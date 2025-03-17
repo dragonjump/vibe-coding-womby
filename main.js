@@ -2,6 +2,7 @@
 const gameState = {
     time: 0,
     deltaTime: 0,
+    score: 0,
     keys: {
         forward: false,
         backward: false,
@@ -24,7 +25,9 @@ const gameState = {
         seedReloadTime: 1,
         lastSeedTime: 0
     },
-    projectiles: []
+    projectiles: [],
+    collectibles: [],
+    obstacles: []
 };
 
 // Initialize clouds array
@@ -269,6 +272,115 @@ window.addEventListener('resize', () => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
 
+// Create collectible seed
+function createCollectibleSeed(x, y, z) {
+    const seed = new THREE.Group();
+    
+    // Seed body
+    const seedGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+    const seedMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xFFD700, // Gold color
+        metalness: 0.7,
+        roughness: 0.3
+    });
+    const seedMesh = new THREE.Mesh(seedGeometry, seedMaterial);
+    seed.add(seedMesh);
+    
+    // Add glow effect
+    const glowGeometry = new THREE.SphereGeometry(0.3, 8, 8);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xFFFF00,
+        transparent: true,
+        opacity: 0.3
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    seed.add(glow);
+    
+    seed.position.set(x, y, z);
+    seed.userData.type = 'collectible';
+    seed.userData.baseY = y;
+    return seed;
+}
+
+// Create obstacle
+function createObstacle(x, y, z, width = 1, height = 2, depth = 1) {
+    const geometry = new THREE.BoxGeometry(width, height, depth);
+    const material = new THREE.MeshStandardMaterial({ 
+        color: 0xFF4444,
+        metalness: 0.3,
+        roughness: 0.7
+    });
+    const obstacle = new THREE.Mesh(geometry, material);
+    obstacle.position.set(x, y + height/2, z);
+    obstacle.userData.type = 'obstacle';
+    
+    // Add collision box
+    obstacle.userData.boundingBox = new THREE.Box3().setFromObject(obstacle);
+    return obstacle;
+}
+
+// Initialize level elements
+function initializeLevelElements() {
+    // Clear existing elements
+    gameState.collectibles.forEach(c => scene.remove(c));
+    gameState.obstacles.forEach(o => scene.remove(o));
+    gameState.collectibles.length = 0;
+    gameState.obstacles.length = 0;
+    
+    // Add collectible seeds in a pattern
+    for (let i = 0; i < 10; i++) {
+        const angle = (i / 10) * Math.PI * 2;
+        const radius = 8;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const seed = createCollectibleSeed(x, 3, z);
+        gameState.collectibles.push(seed);
+        scene.add(seed);
+    }
+    
+    // Add obstacles in strategic positions
+    const obstaclePositions = [
+        { x: 5, y: 0, z: 5, w: 1, h: 3, d: 1 },
+        { x: -5, y: 0, z: -5, w: 1, h: 2, d: 1 },
+        { x: 5, y: 0, z: -5, w: 1, h: 4, d: 1 },
+        { x: -5, y: 0, z: 5, w: 1, h: 2.5, d: 1 }
+    ];
+    
+    obstaclePositions.forEach(pos => {
+        const obstacle = createObstacle(pos.x, pos.y, pos.z, pos.w, pos.h, pos.d);
+        gameState.obstacles.push(obstacle);
+        scene.add(obstacle);
+    });
+}
+
+// Create score display
+const scoreElement = document.createElement('div');
+scoreElement.style.position = 'absolute';
+scoreElement.style.top = '20px';
+scoreElement.style.left = '20px';
+scoreElement.style.color = 'white';
+scoreElement.style.fontSize = '24px';
+scoreElement.style.fontFamily = 'Arial, sans-serif';
+scoreElement.style.textShadow = '2px 2px 4px rgba(0,0,0,0.5)';
+document.body.appendChild(scoreElement);
+
+// Create resource display
+const resourceElement = document.createElement('div');
+resourceElement.style.position = 'absolute';
+resourceElement.style.top = '60px';
+resourceElement.style.left = '20px';
+resourceElement.style.color = 'white';
+resourceElement.style.fontSize = '18px';
+resourceElement.style.fontFamily = 'Arial, sans-serif';
+resourceElement.style.textShadow = '2px 2px 4px rgba(0,0,0,0.5)';
+document.body.appendChild(resourceElement);
+
+// Update UI elements
+function updateUI() {
+    scoreElement.textContent = `Score: ${gameState.score}`;
+    resourceElement.textContent = `Fuel: ${Math.round(gameState.player.fuel)}% | Seeds: ${gameState.player.seeds}`;
+}
+
 // Game loop with varied cloud movement and hamster physics
 function gameLoop(currentTime) {
     // First frame initialization
@@ -379,12 +491,56 @@ function gameLoop(currentTime) {
         gameState.player.seeds++;
     }
 
+    // Animate collectibles
+    gameState.collectibles.forEach(seed => {
+        seed.position.y = seed.userData.baseY + Math.sin(currentTime * 0.002) * 0.2;
+        seed.rotation.y += 0.02;
+        
+        // Check collection
+        if (seed.visible && hamster.position.distanceTo(seed.position) < 1) {
+            seed.visible = false;
+            gameState.score += 100;
+            gameState.player.seeds = Math.min(gameState.player.maxSeeds, gameState.player.seeds + 3);
+            
+            // Create collection effect
+            for (let i = 0; i < 10; i++) {
+                const particle = createRocketParticle();
+                particle.material.color.setHex(0xFFD700);
+                particle.position.copy(seed.position);
+                particle.velocity.set(
+                    (Math.random() - 0.5) * 5,
+                    Math.random() * 5,
+                    (Math.random() - 0.5) * 5
+                );
+                scene.add(particle);
+                gameState.projectiles.push(particle);
+            }
+        }
+    });
+
+    // Check obstacle collisions
+    gameState.obstacles.forEach(obstacle => {
+        const hamsterBox = new THREE.Box3().setFromObject(hamster);
+        if (hamsterBox.intersectsBox(obstacle.userData.boundingBox)) {
+            // Collision response
+            const pushDirection = hamster.position.clone().sub(obstacle.position).normalize();
+            hamster.position.add(pushDirection.multiplyScalar(0.1));
+            gameState.player.velocity.multiplyScalar(0.5);
+        }
+    });
+
+    // Update UI
+    updateUI();
+
     // Render scene
     renderer.render(scene, camera);
 
     // Continue game loop
     requestAnimationFrame(gameLoop);
 }
+
+// Initialize level elements
+initializeLevelElements();
 
 // Start game loop
 requestAnimationFrame(gameLoop);
