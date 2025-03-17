@@ -281,12 +281,155 @@ startScreen.innerHTML = `
 `;
 document.body.appendChild(startScreen);
 
-// Initialize audio context on user interaction
+// Sound setup
+const audioListener = new THREE.AudioListener();
+camera.add(audioListener);
+
+// Create audio context and sounds
+let audioContext = null;
+let soundBuffers = {};
+
+// Function to initialize audio system
+function initAudioSystem() {
+    try {
+        // Create audio context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioListener.context = audioContext;  // Ensure listener has context
+        
+        // Create sound buffers
+        setupSynthSounds();
+        
+        console.log('Audio system initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize audio system:', error);
+    }
+}
+
+// Function to create a synth sound buffer
+function createSynthSound(type, frequency, duration, volume = 1) {
+    if (!audioContext) {
+        console.warn('Audio context not initialized');
+        return null;
+    }
+    
+    try {
+        const sampleRate = audioContext.sampleRate;
+        const numSamples = duration * sampleRate;
+        const buffer = audioContext.createBuffer(1, numSamples, sampleRate);
+        const data = buffer.getChannelData(0);
+
+        for (let i = 0; i < numSamples; i++) {
+            const t = i / sampleRate;
+            let sample = 0;
+
+            switch (type) {
+                case 'shoot':
+                    // More distinct shooting sound
+                    const freq = frequency + 800 * Math.exp(-t * 15);
+                    sample = Math.sin(2 * Math.PI * freq * t) * Math.exp(-t * 12) +
+                            Math.sin(4 * Math.PI * freq * t) * 0.5 * Math.exp(-t * 12);
+                    break;
+                case 'jump':
+                    // Rising tone
+                    sample = Math.sin(2 * Math.PI * (frequency + 200 * t) * t) *
+                            Math.exp(-t * 5);
+                    break;
+                case 'boost':
+                    // White noise with filter
+                    sample = (Math.random() * 2 - 1) * Math.exp(-t * 2);
+                    break;
+                case 'collect':
+                    // Happy chime
+                    sample = (Math.sin(2 * Math.PI * frequency * t) +
+                             Math.sin(2 * Math.PI * (frequency * 1.5) * t)) *
+                            Math.exp(-t * 8);
+                    break;
+                case 'hit':
+                    // Impact sound
+                    sample = (Math.random() * 2 - 1) * Math.exp(-t * 4) +
+                            Math.sin(2 * Math.PI * 100 * t) * Math.exp(-t * 8);
+                    break;
+            }
+
+            data[i] = sample * volume;
+        }
+
+        return buffer;
+    } catch (error) {
+        console.error('Error creating synth sound:', error);
+        return null;
+    }
+}
+
+// Create and set up sound buffers
+function setupSynthSounds() {
+    if (!audioContext) {
+        console.warn('Cannot setup sounds - audio context not initialized');
+        return;
+    }
+    
+    try {
+        const sounds = {
+            shoot: { freq: 440, duration: 0.2, volume: 0.4 },
+            jump: { freq: 300, duration: 0.3, volume: 0.4 },
+            boost: { freq: 100, duration: 0.3, volume: 0.2 },
+            collect: { freq: 600, duration: 0.2, volume: 0.4 },
+            hit: { freq: 100, duration: 0.3, volume: 0.4 }
+        };
+
+        Object.entries(sounds).forEach(([type, params]) => {
+            const buffer = createSynthSound(type, params.freq, params.duration, params.volume);
+            if (buffer) {
+                soundBuffers[type] = buffer;
+            }
+        });
+
+        console.log('Synth sounds created successfully');
+    } catch (error) {
+        console.error('Error setting up synth sounds:', error);
+    }
+}
+
+// Function to play a sound safely
+function playSound(soundType) {
+    if (!audioContext || !soundBuffers[soundType]) {
+        console.warn(`Cannot play ${soundType} - audio not initialized`);
+        return;
+    }
+
+    try {
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        const source = audioContext.createBufferSource();
+        source.buffer = soundBuffers[soundType];
+        
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.5; // Adjust volume as needed
+        
+        source.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        source.start(0);
+    } catch (error) {
+        console.warn(`Error playing ${soundType} sound:`, error);
+    }
+}
+
+// Initialize audio context and sounds on user interaction
 document.getElementById('startButton').addEventListener('click', () => {
-    // Resume audio context
-    audioListener.context.resume().then(() => {
-        console.log('AudioContext resumed successfully');
-    });
+    // Initialize audio system
+    initAudioSystem();
+    
+    // Resume audio context if it exists
+    if (audioContext) {
+        audioContext.resume().then(() => {
+            console.log('AudioContext resumed successfully');
+        }).catch(error => {
+            console.error('Error resuming AudioContext:', error);
+        });
+    }
     
     // Hide start screen and start game
     startScreen.style.display = 'none';
@@ -296,65 +439,7 @@ document.getElementById('startButton').addEventListener('click', () => {
     resetGame();
 });
 
-// Sound setup
-const audioListener = new THREE.AudioListener();
-camera.add(audioListener);
-
-const soundEffects = {
-    jump: new THREE.Audio(audioListener),
-    boost: new THREE.Audio(audioListener),
-    collect: new THREE.Audio(audioListener),
-    shoot: new THREE.Audio(audioListener),
-    hit: new THREE.Audio(audioListener)
-};
-
-// Define audioLoader
-const audioLoader = new THREE.AudioLoader();
-
-// Function to load and set up a sound effect with error handling
-function loadSound(url, soundEffect, volume) {
-    return new Promise((resolve, reject) => {
-        audioLoader.load(
-            url,
-            (buffer) => {
-                try {
-                    soundEffect.setBuffer(buffer);
-                    soundEffect.setVolume(volume);
-                    soundEffect.setLoop(false);
-                    console.log(`Sound loaded successfully: ${url}`);
-                    resolve();
-                } catch (error) {
-                    console.error(`Error setting up sound: ${url}`, error);
-                    reject(error);
-                }
-            },
-            // Progress callback
-            (progress) => {
-                console.log(`Loading sound ${url}: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
-            },
-            // Error callback
-            (error) => {
-                console.error(`Error loading sound: ${url}`, error);
-                reject(error);
-            }
-        );
-    });
-}
-
-// Load all sound effects with better error handling
-Promise.all([
-    loadSound('https://cdn.freesound.org/previews/429/429593_6142149-lq.mp3', soundEffects.jump, 0.5),
-    loadSound('https://cdn.freesound.org/previews/362/362420_6142149-lq.mp3', soundEffects.boost, 0.3),
-    loadSound('https://cdn.freesound.org/previews/415/415760_6142149-lq.mp3', soundEffects.collect, 0.5),
-    loadSound('https://cdn.freesound.org/previews/369/369921_6142149-lq.mp3', soundEffects.shoot, 0.4),
-    loadSound('https://cdn.freesound.org/previews/331/331912_6142149-lq.mp3', soundEffects.hit, 0.6)
-]).then(() => {
-    console.log('All sounds loaded successfully');
-}).catch(error => {
-    console.error('Error loading sounds:', error);
-});
-
-// Modify the sound playing in handleClick
+// Modify the handleClick function to use the new playSound function
 function handleClick(event) {
     if (gameState.state !== 'playing') return;
     
@@ -362,50 +447,33 @@ function handleClick(event) {
         gameState.time - gameState.player.lastSeedTime > gameState.player.seedReloadTime * 1000) {
         
         // Create multiple seeds in a spread pattern
-        const numSeeds = 5; // Increased to 5 seeds
-        const spreadAngle = Math.PI / 4; // 45-degree spread
+        const numSeeds = 5;
+        const spreadAngle = Math.PI / 4;
         
         for (let i = 0; i < numSeeds; i++) {
             const seed = createSeed();
             seed.position.copy(hamster.position);
-            seed.position.y += 0.5; // Start slightly above hamster
+            seed.position.y += 0.5;
             
-            // Calculate angle for this seed
             const angle = (i / (numSeeds - 1) - 0.5) * spreadAngle;
-            
-            // Base direction is forward and up
             const shootDirection = new THREE.Vector3(0, 1.5, -1).normalize();
-            
-            // Apply spread rotation
             shootDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
             
-            // Add random variation
             shootDirection.x += (Math.random() - 0.5) * 0.1;
             shootDirection.y += Math.random() * 0.1;
             
-            // Higher initial velocity
-            seed.velocity = shootDirection.multiplyScalar(40); // Increased velocity
+            seed.velocity = shootDirection.multiplyScalar(40);
             
             gameState.projectiles.push(seed);
             scene.add(seed);
         }
         
-        // Play sound with better error handling
-        try {
-            if (soundEffects.shoot.buffer) {
-                const shootSound = soundEffects.shoot.clone();
-                shootSound.setVolume(0.4);
-                shootSound.play().catch(error => {
-                    console.error('Error playing shoot sound:', error);
-                });
-            }
-        } catch (error) {
-            console.error('Error with shoot sound:', error);
-        }
+        // Play shoot sound using the new playSound function
+        playSound('shoot');
         
         gameState.player.seeds--;
         gameState.player.lastSeedTime = gameState.time;
-        gameState.player.seedReloadTime = 0.2; // Even faster shooting
+        gameState.player.seedReloadTime = 0.2;
     }
 }
 
@@ -735,7 +803,7 @@ function gameLoop(currentTime) {
             gameState.score += 100;
             gameState.player.seeds = Math.min(gameState.player.maxSeeds, gameState.player.seeds + 3);
             
-            soundEffects.collect.play();
+            playSound('collect');
             gameState.effects.screenShake = 0.1;
             
             // Flash overlay
@@ -764,7 +832,7 @@ function gameLoop(currentTime) {
     gameState.obstacles.forEach(obstacle => {
         const hamsterBox = new THREE.Box3().setFromObject(hamster);
         if (!gameState.player.isInvulnerable && hamsterBox.intersectsBox(obstacle.userData.boundingBox)) {
-            soundEffects.hit.play();
+            playSound('hit');
             gameState.effects.screenShake = 0.3;
             
             // Flash overlay
