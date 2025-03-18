@@ -64,14 +64,19 @@ document.body.appendChild(canvas);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); // Sky blue background
 
+// Add fog to blend with sky
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.008);
+
 // Camera setup
 const camera = new THREE.PerspectiveCamera(
     75, // FOV
-    window.innerWidth / window.innerHeight, // Aspect ratio
-    0.1, // Near plane
-    1000 // Far plane
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
 );
-camera.position.set(0, 5, 10);
+
+// Adjust initial camera position
+camera.position.set(0, 5, 12);
 camera.lookAt(0, 0, 0);
 
 // Renderer setup
@@ -83,11 +88,11 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
 // Basic lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Increased ambient light
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-directionalLight.position.set(5, 5, 5);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Increased directional light
+directionalLight.position.set(5, 10, 5); // Adjusted light position
 scene.add(directionalLight);
 
 // Initialize managers
@@ -1214,84 +1219,69 @@ function gameLoop(currentTime) {
     // Update hamster position based on input
     const moveSpeed = gameState.player.speed * gameState.deltaTime;
     
-    // Apply movement
-    if (gameState.keys.forward) {
-        hamster.position.z -= moveSpeed;
-        // Generate new world as player moves forward
-        if (hamster.position.z < gameState.scenery.lastGeneratedPosition - gameState.scenery.generationDistance) {
-            generateNewWorldChunk();
-        }
-    }
-    if (gameState.keys.backward) hamster.position.z += moveSpeed;
-    if (gameState.keys.left) hamster.position.x -= moveSpeed;
-    if (gameState.keys.right) hamster.position.x += moveSpeed;
-
-    // Apply gravity and jumping
-    if (gameState.keys.space && hamster.position.y > 1) {
-        // Start or continue jumping
-        if (!gameState.player.isJumping) {
-            gameState.player.isJumping = true;
-            gameState.player.jumpTime = 0;
-            playSound('jump');
-        }
-        
-        // Increase jump force over time
-        gameState.player.jumpTime = Math.min(gameState.player.jumpTime + gameState.deltaTime, gameState.player.maxJumpTime);
-        const jumpProgress = gameState.player.jumpTime / gameState.player.maxJumpTime;
-        const currentJumpForce = gameState.player.baseJumpForce + 
-            (gameState.player.maxJumpForce - gameState.player.baseJumpForce) * jumpProgress;
-        
-        gameState.player.velocity.y = currentJumpForce;
-
-        // Add rocket particles when jumping with multiple points and colors
-        if (Math.random() < gameState.player.rocketParticleRate * 2) {  // Doubled particle rate
-            hamster.exhaustPoints.children.forEach(exhaustPoint => {
-                const particle = createRocketParticle();
-                const worldPos = new THREE.Vector3();
-                exhaustPoint.getWorldPosition(worldPos);
-                particle.position.copy(worldPos);
-                
-                // Random fire colors
-                const colors = [0xFF4400, 0xFF6600, 0xFF8800, 0xFFAA00];
-                particle.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
-                
-                // Add some random rotation to particles
-                particle.rotation.set(
-                    Math.random() * Math.PI,
-                    Math.random() * Math.PI,
-                    Math.random() * Math.PI
-                );
-                
-                scene.add(particle);
-                gameState.projectiles.push(particle);
-            });
-        }
-    } else {
-        // Apply reduced gravity when falling
-        gameState.player.isJumping = false;
-        gameState.player.velocity.y -= gameState.player.fallGravity * gameState.deltaTime;
-    }
-
     // Update vertical position and ground collision
     hamster.position.y += gameState.player.velocity.y * gameState.deltaTime;
 
-    // Get terrain height at player position
-    const groundHeight = terrainManager.getHeight(hamster.position.x, hamster.position.z) + 2;
+    // Get terrain height at player position and check if on ground
+    const groundHeight = terrainManager.getHeight(hamster.position.x, hamster.position.z) + 1;
+    const isOnGround = hamster.position.y <= groundHeight;
 
-    // Ground collision with bounce effect
+    // Ground collision
     if (hamster.position.y < groundHeight) {
         hamster.position.y = groundHeight;
-        gameState.player.velocity.y = Math.abs(gameState.player.velocity.y) * 0.3; // Bounce with 30% of impact velocity
-        if (Math.abs(gameState.player.velocity.y) < 0.1) {
-            gameState.player.velocity.y = 0;
-        }
+        gameState.player.velocity.y = 0;
+        gameState.player.isJumping = false;
     }
 
-    // Update camera to follow hamster
+    // Apply gravity and jumping
+    if (gameState.keys.space && isOnGround) {
+        gameState.player.velocity.y = gameState.player.jumpForce;
+        gameState.player.isJumping = true;
+        playSound('jump');
+
+        // Add rocket particles when jumping
+        hamster.exhaustPoints.children.forEach(exhaustPoint => {
+            const particle = createRocketParticle();
+            const worldPos = new THREE.Vector3();
+            exhaustPoint.getWorldPosition(worldPos);
+            particle.position.copy(worldPos);
+            scene.add(particle);
+            gameState.projectiles.push(particle);
+        });
+    } else {
+        // Apply gravity
+        gameState.player.velocity.y -= gameState.player.gravity * gameState.deltaTime;
+    }
+
+    // Prevent going through mountains - add horizontal collision detection
+    const nextX = hamster.position.x + (gameState.keys.right ? moveSpeed : (gameState.keys.left ? -moveSpeed : 0));
+    const nextZ = hamster.position.z + (gameState.keys.backward ? moveSpeed : (gameState.keys.forward ? -moveSpeed : 0));
+    
+    const nextGroundHeight = terrainManager.getHeight(nextX, nextZ) + 1;
+    const heightDifference = nextGroundHeight - groundHeight;
+
+    // Only allow movement if height difference is not too steep
+    if (Math.abs(heightDifference) < 2) {
+        if (gameState.keys.forward) hamster.position.z -= moveSpeed;
+        if (gameState.keys.backward) hamster.position.z += moveSpeed;
+        if (gameState.keys.left) hamster.position.x -= moveSpeed;
+        if (gameState.keys.right) hamster.position.x += moveSpeed;
+    }
+
+    // Update camera to follow hamster with better positioning
     camera.position.x = hamster.position.x;
-    camera.position.y = hamster.position.y + 3;
-    camera.position.z = hamster.position.z + 10;
+    camera.position.y = hamster.position.y + 5; // Increased height
+    camera.position.z = hamster.position.z + 12; // Increased distance
     camera.lookAt(hamster.position);
+
+    // Update terrain based on player position
+    terrainManager.update(hamster.position);
+
+    // Generate new world elements when player moves forward
+    if (hamster.position.z < gameState.worldPosition - 50) {
+        gameState.worldPosition = Math.floor(hamster.position.z / 50) * 50;
+        generateNewWorldChunk();
+    }
 
     // Animate clouds with varied movement
     cloudManager.clouds.forEach((cloud, index) => {
@@ -1316,14 +1306,16 @@ function gameLoop(currentTime) {
         gameState.player.velocity.y += gameState.player.boostForce * gameState.deltaTime;
         gameState.player.fuel -= 30 * gameState.deltaTime;
 
-        // Add rocket particles
+        // Add rocket particles from multiple exhaust points
         if (Math.random() < 0.3) {
-            const particle = createRocketParticle();
-            const worldPos = new THREE.Vector3();
-            hamster.exhaustPoint.getWorldPosition(worldPos);
-            particle.position.copy(worldPos);
-            scene.add(particle);
-            gameState.projectiles.push(particle);
+            hamster.exhaustPoints.children.forEach(exhaustPoint => {
+                const particle = createRocketParticle();
+                const worldPos = new THREE.Vector3();
+                exhaustPoint.getWorldPosition(worldPos);
+                particle.position.copy(worldPos);
+                scene.add(particle);
+                gameState.projectiles.push(particle);
+            });
         }
     }
 
@@ -2266,3 +2258,6 @@ terrainManager.update(hamster.position);
 
 // Update clouds
 cloudManager.update(hamster.position, gameState.deltaTime);
+
+// Check if hamster is on the ground
+const isOnGround = Math.abs(hamster.position.y - terrainManager.getHeight(hamster.position.x, hamster.position.z)) < 0.1;

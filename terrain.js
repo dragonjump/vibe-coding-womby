@@ -221,121 +221,123 @@ class TerrainChunk {
 export class TerrainManager {
     constructor(scene) {
         this.scene = scene;
-        this.chunks = new Map();
         this.noise = createNoise2D();
-        this.currentCenter = new THREE.Vector2();
-        this.groundColor = new THREE.Color(0x3b7d4f);
+        this.chunks = new Map();
+        this.chunkSize = 50;
+        this.groundMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x44aa44,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        this.heightScale = 10;
+        this.noiseScale = 0.02;
+    }
+
+    getChunkKey(x, z) {
+        const chunkX = Math.floor(x / this.chunkSize);
+        const chunkZ = Math.floor(z / this.chunkSize);
+        return `${chunkX},${chunkZ}`;
+    }
+
+    generateChunk(x, z) {
+        const chunkKey = this.getChunkKey(x, z);
+        
+        if (this.chunks.has(chunkKey)) {
+            return;
+        }
+
+        const geometry = new THREE.PlaneGeometry(
+            this.chunkSize,
+            this.chunkSize,
+            this.chunkSize / 2,
+            this.chunkSize / 2
+        );
+        geometry.rotateX(-Math.PI / 2);
+
+        const vertices = geometry.attributes.position.array;
+        for (let i = 0; i < vertices.length; i += 3) {
+            const vx = vertices[i] + x;
+            const vz = vertices[i + 2] + z;
+            vertices[i + 1] = this.getHeight(vx, vz);
+        }
+
+        geometry.computeVertexNormals();
+        const mesh = new THREE.Mesh(geometry, this.groundMaterial);
+        mesh.position.set(x, 0, z);
+        this.scene.add(mesh);
+        this.chunks.set(chunkKey, mesh);
+    }
+
+    getHeight(x, z) {
+        const nx = x * this.noiseScale;
+        const nz = z * this.noiseScale;
+        
+        // Multiple layers of noise for more interesting terrain
+        const baseHeight = this.noise(nx, nz);
+        const detailHeight = this.noise(nx * 2, nz * 2) * 0.5;
+        const microDetail = this.noise(nx * 4, nz * 4) * 0.25;
+        
+        // Add mountain ranges
+        const mountainNoise = this.noise(nx * 0.3, nz * 0.3);
+        const mountainHeight = Math.max(0, mountainNoise * 2 - 0.5) * 30;
+        
+        // Combine all height components
+        const finalHeight = (baseHeight + detailHeight + microDetail) * this.heightScale + mountainHeight;
+        
+        return finalHeight;
     }
 
     update(playerPosition) {
-        // Convert player position to chunk coordinates
-        const chunkX = Math.floor(playerPosition.x / CHUNK_SIZE);
-        const chunkZ = Math.floor(playerPosition.z / CHUNK_SIZE);
+        const viewDistance = 150;
+        const chunkSize = this.chunkSize;
         
-        if (this.currentCenter.x !== chunkX || this.currentCenter.y !== chunkZ) {
-            this.currentCenter.set(chunkX, chunkZ);
-            this.updateChunks();
-        }
-    }
-
-    updateChunks() {
-        // Keep track of chunks to keep
-        const chunksToKeep = new Set();
-
-        // Generate or update chunks in render distance
-        for (let x = -RENDER_DISTANCE; x <= RENDER_DISTANCE; x++) {
-            for (let z = -RENDER_DISTANCE; z <= RENDER_DISTANCE; z++) {
-                const chunkX = this.currentCenter.x + x;
-                const chunkZ = this.currentCenter.y + z;
-                const key = `${chunkX},${chunkZ}`;
-                chunksToKeep.add(key);
-
-                if (!this.chunks.has(key)) {
-                    const chunk = new TerrainChunk(chunkX, chunkZ, this.noise);
-                    this.chunks.set(key, chunk);
-                    
-                    // Add chunk meshes to scene
-                    this.scene.add(chunk.meshes.terrain);
-                    chunk.meshes.trees.forEach(tree => this.scene.add(tree));
-                    chunk.meshes.grass.forEach(grass => this.scene.add(grass));
-                }
+        // Generate more chunks around player for smoother terrain transitions
+        for (let x = -3; x <= 3; x++) {
+            for (let z = -3; z <= 3; z++) {
+                const chunkX = Math.floor(playerPosition.x / chunkSize) * chunkSize + x * chunkSize;
+                const chunkZ = Math.floor(playerPosition.z / chunkSize) * chunkSize + z * chunkSize;
+                this.generateChunk(chunkX, chunkZ);
             }
         }
 
-        // Remove chunks outside render distance
+        // Remove distant chunks
         for (const [key, chunk] of this.chunks) {
-            if (!chunksToKeep.has(key)) {
-                // Remove chunk meshes from scene
-                this.scene.remove(chunk.meshes.terrain);
-                chunk.meshes.trees.forEach(tree => this.scene.remove(tree));
-                chunk.meshes.grass.forEach(grass => this.scene.remove(grass));
-                
-                // Dispose chunk
-                chunk.dispose();
+            const distance = new THREE.Vector2(
+                chunk.position.x - playerPosition.x,
+                chunk.position.z - playerPosition.z
+            ).length();
+
+            if (distance > viewDistance) {
+                this.scene.remove(chunk);
+                chunk.geometry.dispose();
+                chunk.material.dispose();
                 this.chunks.delete(key);
             }
         }
     }
 
-    getHeight(x, z) {
-        const chunkX = Math.floor(x / CHUNK_SIZE);
-        const chunkZ = Math.floor(z / CHUNK_SIZE);
-        const key = `${chunkX},${chunkZ}`;
-        const chunk = this.chunks.get(key);
-        return chunk ? chunk.getHeight(x, z) : 0;
-    }
-
     setGroundColor(color) {
-        this.groundColor = new THREE.Color(color);
-        // Update all existing chunks with new color
-        for (const chunk of this.chunks.values()) {
-            if (chunk.meshes.terrain) {
-                const vertices = chunk.meshes.terrain.geometry.attributes.position.array;
-                const colors = new Float32Array(vertices.length);
-                
-                for (let i = 0; i < vertices.length; i += 3) {
-                    const height = vertices[i + 1];
-                    const slope = chunk.calculateSlope(vertices, i);
-                    
-                    const color = new THREE.Color();
-                    if (height < 0.5) {
-                        color.copy(this.groundColor);
-                    } else if (height < 5) {
-                        color.copy(this.groundColor).multiplyScalar(0.8); // Darker variant
-                    } else {
-                        color.setHex(0x6d6d6d); // Rock color stays the same
-                    }
-                    
-                    colors[i] = color.r;
-                    colors[i + 1] = color.g;
-                    colors[i + 2] = color.b;
-                }
-                
-                chunk.meshes.terrain.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-                chunk.meshes.terrain.geometry.attributes.color.needsUpdate = true;
-            }
-        }
+        this.groundMaterial.color.copy(color);
     }
 
     reset() {
-        // Remove and dispose all chunks
-        for (const [key, chunk] of this.chunks) {
-            // Remove chunk meshes from scene
-            this.scene.remove(chunk.meshes.terrain);
-            chunk.meshes.trees.forEach(tree => this.scene.remove(tree));
-            chunk.meshes.grass.forEach(grass => this.scene.remove(grass));
-            
-            // Dispose chunk
-            chunk.dispose();
+        // Remove all chunks
+        for (const chunk of this.chunks.values()) {
+            this.scene.remove(chunk);
+            chunk.geometry.dispose();
+            chunk.material.dispose();
         }
-        
-        // Clear chunks map
         this.chunks.clear();
-        
-        // Reset center position
-        this.currentCenter.set(0, 0);
-        
-        // Generate initial chunks around origin
-        this.updateChunks();
+    }
+
+    cleanupChunks(maxZ) {
+        for (const [key, chunk] of this.chunks) {
+            if (chunk.position.z > maxZ) {
+                this.scene.remove(chunk);
+                chunk.geometry.dispose();
+                chunk.material.dispose();
+                this.chunks.delete(key);
+            }
+        }
     }
 } 
