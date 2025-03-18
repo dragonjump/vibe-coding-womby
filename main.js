@@ -2491,15 +2491,15 @@ function createFox() {
     const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     fox.add(glow);
     
-    // More aggressive properties
+    // Less aggressive properties
     fox.userData.type = 'fox';
-    fox.userData.health = 3;
+    fox.userData.health = 1; // One hit to destroy
     fox.userData.shootTimer = 0;
-    fox.userData.shootInterval = 1;
-    fox.userData.moveSpeed = 12;
+    fox.userData.shootInterval = 2; // Shoot less frequently
+    fox.userData.moveSpeed = 6; // Move slower
     fox.userData.state = 'chase';
-    fox.userData.chaseDistance = 30;
-    fox.userData.retreatDistance = 5;
+    fox.userData.chaseDistance = 40; // Stay further away
+    fox.userData.retreatDistance = 15; // Retreat sooner
     
     console.log('Fox created successfully:', {
         type: fox.userData.type,
@@ -2550,10 +2550,43 @@ function updateFoxes() {
     
     console.log(`Updating ${gameState.enemies.length} foxes...`);
     
-    gameState.enemies.forEach((fox, index) => {
+    // Update foxes and check for seed collisions
+    for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+        const fox = gameState.enemies[i];
         if (fox.userData.type !== 'fox') {
             console.warn('Non-fox enemy found:', fox.userData.type);
-            return;
+            continue;
+        }
+        
+        // Check for seed collisions first
+        for (let j = gameState.projectiles.length - 1; j >= 0; j--) {
+            const projectile = gameState.projectiles[j];
+            // Only check actual seeds (not particles or fox bullets)
+            if (!projectile.lifetime && !projectile.userData.type) {
+                if (projectile.position.distanceTo(fox.position) < 1.5) {
+                    // Remove the fox immediately
+                    scene.remove(fox);
+                    gameState.enemies.splice(i, 1);
+                    
+                    // Remove the seed
+                    scene.remove(projectile);
+                    gameState.projectiles.splice(j, 1);
+                    
+                    // Create explosion effect
+                    createExplosion(fox.position, 0xff3300);
+                    
+                    // Add score
+                    const score = 200;
+                    gameState.score += score;
+                    showScorePopup(score, fox.position);
+                    
+                    // Play sound
+                    playSound('hit');
+                    
+                    // Return to skip rest of fox update
+                    return;
+                }
+            }
         }
         
         // Update shoot timer
@@ -2563,9 +2596,9 @@ function updateFoxes() {
         const distanceToPlayer = fox.position.distanceTo(hamster.position);
         
         // Debug fox state
-        if (index === 0) { // Only log first fox to avoid spam
+        if (i === 0) { // Only log first fox to avoid spam
             console.log('Fox status:', {
-                index,
+                index: i,
                 position: {
                     x: fox.position.x.toFixed(2),
                     y: fox.position.y.toFixed(2),
@@ -2601,35 +2634,25 @@ function updateFoxes() {
         // Rotate to face player
         fox.lookAt(hamster.position);
         
-        // Shooting logic
+        // Shooting logic - now only shoots one bullet at a time
         if (fox.userData.shootTimer >= fox.userData.shootInterval) {
             fox.userData.shootTimer = 0;
             
-            // Shoot multiple bullets in a spread pattern
-            const numBullets = 3;
-            const spreadAngle = Math.PI / 8;
+            const bulletPosition = fox.position.clone();
+            bulletPosition.y += 0.5;
             
-            for (let i = 0; i < numBullets; i++) {
-                const bulletPosition = fox.position.clone();
-                bulletPosition.y += 0.5;
-                
-                const bulletDirection = new THREE.Vector3()
-                    .subVectors(hamster.position, bulletPosition)
-                    .normalize();
-                
-                // Add spread to bullets
-                const angle = (i / (numBullets - 1) - 0.5) * spreadAngle;
-                bulletDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-                
-                const bullet = createFoxBullet(bulletPosition, bulletDirection);
-                scene.add(bullet);
-                gameState.projectiles.push(bullet);
-            }
+            const bulletDirection = new THREE.Vector3()
+                .subVectors(hamster.position, bulletPosition)
+                .normalize();
+            
+            const bullet = createFoxBullet(bulletPosition, bulletDirection);
+            scene.add(bullet);
+            gameState.projectiles.push(bullet);
             
             // Play shoot sound
             playSound('shoot');
         }
-    });
+    }
 }
 
 function takeDamage(amount) {
