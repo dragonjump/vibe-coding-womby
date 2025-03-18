@@ -5,6 +5,8 @@ import * as THREE from 'https://unpkg.com/three@0.157.0/build/three.module.js';
 import { LevelManager, LEVELS } from './levels.js';
 import { PowerUpManager, POWERUP_TYPES } from './powerups.js';
 import { AchievementManager } from './achievements.js';
+import { TerrainManager } from './terrain.js';
+import { CloudManager } from './clouds.js';
 
 // Background music configuration
 const MUSIC_TRACKS = {
@@ -58,7 +60,41 @@ const canvas = document.createElement('canvas');
 canvas.id = 'game-canvas';
 document.body.appendChild(canvas);
 
-// Modify game state to include level info
+// Scene setup
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB); // Sky blue background
+
+// Camera setup
+const camera = new THREE.PerspectiveCamera(
+    75, // FOV
+    window.innerWidth / window.innerHeight, // Aspect ratio
+    0.1, // Near plane
+    1000 // Far plane
+);
+camera.position.set(0, 5, 10);
+camera.lookAt(0, 0, 0);
+
+// Renderer setup
+const renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    antialias: true
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+// Basic lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+directionalLight.position.set(5, 5, 5);
+scene.add(directionalLight);
+
+// Initialize managers
+const terrainManager = new TerrainManager(scene);
+const cloudManager = new CloudManager(scene);
+
+// Initialize game state
 const gameState = {
     time: 0,
     deltaTime: 0,
@@ -90,14 +126,13 @@ const gameState = {
         isInvulnerable: false,
         invulnerableTime: 0,
         flashTime: 0,
-        // Adjusted jump properties
         isJumping: false,
         jumpTime: 0,
         maxJumpTime: 0.5,
-        baseJumpForce: 4,  // Reduced from 10
-        maxJumpForce: 15,   // Reduced from 20
-        fallGravity: 20,     // Kept the same
-        rocketParticleRate: 0.05  // New property for rocket particle spawn rate
+        baseJumpForce: 4,
+        maxJumpForce: 15,
+        fallGravity: 20,
+        rocketParticleRate: 0.05
     },
     projectiles: [],
     collectibles: [],
@@ -112,7 +147,7 @@ const gameState = {
     combo: {
         count: 0,
         timer: 0,
-        maxTime: 2.0, // Time window for maintaining combo
+        maxTime: 2.0,
         multiplier: 1,
         lastPosition: new THREE.Vector3()
     },
@@ -124,106 +159,6 @@ const gameState = {
         explosions: []
     }
 };
-
-// Initialize clouds array
-const clouds = [];
-
-// Scene setup
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Sky blue background
-
-// Camera setup
-const camera = new THREE.PerspectiveCamera(
-    75, // FOV
-    window.innerWidth / window.innerHeight, // Aspect ratio
-    0.1, // Near plane
-    1000 // Far plane
-);
-camera.position.set(0, 5, 10);
-camera.lookAt(0, 0, 0);
-
-// Renderer setup
-const renderer = new THREE.WebGLRenderer({
-    canvas: canvas,
-    antialias: true
-});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-// Basic lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
-
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-directionalLight.position.set(5, 5, 5);
-scene.add(directionalLight);
-
-// Add a temporary ground plane to help visualize the scene
-const groundGeometry = new THREE.PlaneGeometry(20, 20);
-const groundMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x90EE90,  // Light green
-    side: THREE.DoubleSide
-});
-const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-ground.rotation.x = -Math.PI / 2; // Rotate to be horizontal
-scene.add(ground);
-
-// Create clouds
-function createCloud(x, y, z, size = 1) {
-    const cloudGroup = new THREE.Group();
-    
-    // Create multiple spheres for each cloud
-    const numPuffs = 6 + Math.floor(Math.random() * 5); // 6-10 puffs per cloud
-    for (let i = 0; i < numPuffs; i++) {
-        const puffGeometry = new THREE.SphereGeometry(1.5 * size, 16, 16);
-        const puffMaterial = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.85 + Math.random() * 0.1, // Varying opacity
-        });
-        const puff = new THREE.Mesh(puffGeometry, puffMaterial);
-        
-        // Randomized position within cloud group
-        puff.position.x = (i - numPuffs/2) * (1.2 * size);
-        puff.position.y = (Math.random() - 0.5) * (1.5 * size);
-        puff.position.z = (Math.random() - 0.5) * (1.5 * size);
-        
-        // Random scale for more natural look
-        const puffScale = (0.8 + Math.random() * 0.4) * size;
-        puff.scale.set(puffScale, puffScale * 0.6, puffScale);
-        
-        cloudGroup.add(puff);
-    }
-    
-    // Position the entire cloud
-    cloudGroup.position.set(x, y, z);
-    // Random rotation for variety
-    cloudGroup.rotation.y = Math.random() * Math.PI;
-    cloudGroup.rotation.z = (Math.random() - 0.5) * 0.2;
-    return cloudGroup;
-}
-
-// Clear existing clouds
-clouds.forEach(cloud => scene.remove(cloud));
-clouds.length = 0;
-
-// Add clouds at different layers
-const cloudLayers = [
-    { height: 15, count: 5, size: 1.5, spread: 50 },   // High, large clouds
-    { height: 10, count: 8, size: 1.0, spread: 40 },   // Medium height, medium clouds
-    { height: 6, count: 4, size: 0.7, spread: 30 },    // Low, small clouds
-];
-
-cloudLayers.forEach(layer => {
-    for (let i = 0; i < layer.count; i++) {
-        const x = (Math.random() - 0.5) * layer.spread;
-        const y = layer.height + (Math.random() - 0.5) * 2;
-        const z = (Math.random() - 0.5) * layer.spread;
-        const cloud = createCloud(x, y, z, layer.size);
-        clouds.push(cloud);
-        scene.add(cloud);
-    }
-});
 
 // Create seed projectile
 function createSeed() {
@@ -978,7 +913,7 @@ function initializeLevelElements() {
 
     // Set environment
     scene.background = new THREE.Color(currentLevel.environment.skyColor);
-    ground.material.color.setHex(currentLevel.environment.groundColor);
+    terrainManager.setGroundColor(currentLevel.environment.groundColor);
     if (currentLevel.environment.fogDensity > 0) {
         scene.fog = new THREE.FogExp2(currentLevel.environment.skyColor, currentLevel.environment.fogDensity);
     } else {
@@ -1216,6 +1151,11 @@ function resetGame() {
     gameState.player.seeds = gameState.player.maxSeeds;
     hamster.position.set(0, 2, 0);
     gameState.player.velocity.set(0, 0, 0);
+    
+    // Clear and reinitialize world elements
+    cloudManager.dispose();
+    terrainManager.reset();
+    
     initializeLevelElements();
     achievementManager.startLevel();
 }
@@ -1332,12 +1272,15 @@ function gameLoop(currentTime) {
         gameState.player.velocity.y -= gameState.player.fallGravity * gameState.deltaTime;
     }
 
-    // Update vertical position
+    // Update vertical position and ground collision
     hamster.position.y += gameState.player.velocity.y * gameState.deltaTime;
 
+    // Get terrain height at player position
+    const groundHeight = terrainManager.getHeight(hamster.position.x, hamster.position.z) + 2;
+
     // Ground collision with bounce effect
-    if (hamster.position.y < 2) {
-        hamster.position.y = 2;
+    if (hamster.position.y < groundHeight) {
+        hamster.position.y = groundHeight;
         gameState.player.velocity.y = Math.abs(gameState.player.velocity.y) * 0.3; // Bounce with 30% of impact velocity
         if (Math.abs(gameState.player.velocity.y) < 0.1) {
             gameState.player.velocity.y = 0;
@@ -1351,7 +1294,7 @@ function gameLoop(currentTime) {
     camera.lookAt(hamster.position);
 
     // Animate clouds with varied movement
-    clouds.forEach((cloud, index) => {
+    cloudManager.clouds.forEach((cloud, index) => {
         const speed = 0.0003 + (index % 3) * 0.0002;
         const amplitude = 0.01 + (index % 2) * 0.01;
         
@@ -1800,7 +1743,7 @@ const dayNightCycle = {
         lights.point.intensity = 1 - cycle;
         
         // Ground color adjustment
-        ground.material.color.setHSL(0.3, 0.5, 0.2 + cycle * 0.4);
+        terrainManager.setGroundColor(new THREE.Color().setHSL(0.3, 0.5, 0.2 + cycle * 0.4));
     }
 };
 
@@ -2097,7 +2040,7 @@ function createTree(x, z) {
 // Add world update function
 function updateWorld() {
     // Update cloud positions and rotations
-    clouds.forEach((cloud, index) => {
+    cloudManager.clouds.forEach((cloud, index) => {
         const speed = 0.2 + (index % 3) * 0.1;
         const amplitude = 0.5 + (index % 2) * 0.5;
         
@@ -2317,3 +2260,9 @@ function updateExplosions() {
         }
     }
 }
+
+// Update terrain chunks based on player position
+terrainManager.update(hamster.position);
+
+// Update clouds
+cloudManager.update(hamster.position, gameState.deltaTime);
