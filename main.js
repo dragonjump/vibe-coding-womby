@@ -110,6 +110,15 @@ scene.add(directionalLight);
 const terrainManager = new TerrainManager(scene);
 const cloudManager = new CloudManager(scene);
 
+// Initialize sound effects
+const sounds = {
+    hit: new Audio('sounds/hit.mp3'),
+    shoot: new Audio('sounds/shoot.mp3'),
+    jump: new Audio('sounds/jump.mp3')
+};
+
+// Note: playSound function is defined later in the file with full audio context implementation
+
 // Initialize game state
 const gameState = {
     time: 0,
@@ -127,6 +136,9 @@ const gameState = {
         shift: false
     },
     player: {
+        health: 100,
+        maxHealth: 100,
+        damageFlashTime: 0,
         velocity: new THREE.Vector3(),
         speed: 10,
         jumpForce: 15,
@@ -150,6 +162,7 @@ const gameState = {
         fallGravity: 20,
         rocketParticleRate: 0.05
     },
+    enemies: [], // Initialize empty enemies array
     projectiles: [],
     collectibles: [],
     obstacles: [],
@@ -638,6 +651,25 @@ uiContainer.style.color = 'white';
 uiContainer.style.fontFamily = 'Arial, sans-serif';
 document.body.appendChild(uiContainer);
 
+// Create life bar
+const lifeBarContainer = document.createElement('div');
+lifeBarContainer.style.width = '200px';
+lifeBarContainer.style.height = '20px';
+lifeBarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+lifeBarContainer.style.border = '2px solid white';
+lifeBarContainer.style.borderRadius = '10px';
+lifeBarContainer.style.overflow = 'hidden';
+lifeBarContainer.style.marginBottom = '10px';
+
+const lifeBar = document.createElement('div');
+lifeBar.style.width = '100%';
+lifeBar.style.height = '100%';
+lifeBar.style.backgroundColor = '#ff3333';
+lifeBar.style.transition = 'width 0.3s ease-out';
+
+lifeBarContainer.appendChild(lifeBar);
+uiContainer.appendChild(lifeBarContainer);
+
 // Create UI elements
 const scoreElement = document.createElement('div');
 scoreElement.id = 'score';
@@ -694,6 +726,7 @@ overlayElement.style.height = '100%';
 overlayElement.style.pointerEvents = 'none';
 overlayElement.style.transition = 'background-color 0.1s';
 overlayElement.style.backgroundColor = 'transparent';
+overlayElement.style.zIndex = '1000';
 document.body.appendChild(overlayElement);
 
 // Create achievements menu
@@ -1103,6 +1136,18 @@ function updateUI() {
     resourceElement.textContent = `Fuel: ${Math.round(gameState.player.fuel)}%`;
     seedsElement.textContent = `Seeds: ${gameState.player.seeds}`;
 
+    // Update life bar
+    lifeBar.style.width = `${(gameState.player.health / gameState.player.maxHealth) * 100}%`;
+    
+    // Change life bar color based on health
+    if (gameState.player.health > 60) {
+        lifeBar.style.backgroundColor = '#33ff33';
+    } else if (gameState.player.health > 30) {
+        lifeBar.style.backgroundColor = '#ffff33';
+    } else {
+        lifeBar.style.backgroundColor = '#ff3333';
+    }
+
     // Update power-ups display
     const activePowerUps = powerUpManager.getActivePowerUps();
     if (activePowerUps.length > 0) {
@@ -1163,14 +1208,56 @@ document.getElementById('nextLevelButton').addEventListener('click', () => {
 // Update reset game function
 function resetGame() {
     gameState.score = 0;
+    gameState.player.health = gameState.player.maxHealth;
     gameState.player.fuel = gameState.player.maxFuel;
     gameState.player.seeds = gameState.player.maxSeeds;
+    gameState.player.isInvulnerable = false;
+    gameState.player.damageFlashTime = 0;
+    
+    // Reset hamster
     hamster.position.set(0, 2, 0);
+    hamster.visible = true;
     gameState.player.velocity.set(0, 0, 0);
+    
+    // Clear existing foxes and projectiles
+    gameState.enemies.forEach(enemy => scene.remove(enemy));
+    gameState.enemies.length = 0;
+    gameState.projectiles.forEach(proj => scene.remove(proj));
+    gameState.projectiles.length = 0;
     
     // Clear and reinitialize world elements
     cloudManager.dispose();
     terrainManager.reset();
+    
+    // Spawn initial foxes around the player
+    console.log('Spawning initial foxes...');
+    const numInitialFoxes = 5;
+    for (let i = 0; i < numInitialFoxes; i++) {
+        const fox = createFox();
+        
+        // Position foxes in a circle around the player
+        const angle = (i / numInitialFoxes) * Math.PI * 2;
+        const radius = 20; // Distance from player
+        
+        const foxX = Math.cos(angle) * radius;
+        const foxZ = Math.sin(angle) * radius;
+        
+        fox.position.set(foxX, 0, foxZ);
+        
+        // Ensure fox is above ground
+        const groundHeight = terrainManager.getHeight(fox.position.x, fox.position.z);
+        fox.position.y = groundHeight + 1;
+        
+        console.log(`Spawned fox ${i} at:`, {
+            x: fox.position.x.toFixed(2),
+            y: fox.position.y.toFixed(2),
+            z: fox.position.z.toFixed(2)
+        });
+        
+        scene.add(fox);
+        gameState.enemies.push(fox);
+    }
+    console.log(`Initial foxes spawned: ${gameState.enemies.length}`);
     
     initializeLevelElements();
     achievementManager.startLevel();
@@ -1226,6 +1313,9 @@ function gameLoop(currentTime) {
     
     // Update explosions
     updateExplosions();
+
+    // Update foxes
+    updateFoxes();
 
     // Update hamster position based on input
     const moveSpeed = gameState.player.speed * gameState.deltaTime;
@@ -1308,6 +1398,81 @@ function gameLoop(currentTime) {
         cloud.rotation.y += 0.0001 * (1 + index % 2);
     });
 
+    // Update projectiles and check collisions
+    for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
+        const projectile = gameState.projectiles[i];
+        
+        if (projectile.lifetime !== undefined) {
+            // Particle update
+            projectile.lifetime -= gameState.deltaTime;
+            if (projectile.lifetime <= 0) {
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+            projectile.material.opacity = projectile.lifetime / 0.5;
+        } else if (projectile.userData.type === 'foxBullet') {
+            // Fox bullet update
+            projectile.position.add(
+                projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
+            );
+            
+            // Check collision with player
+            if (!gameState.player.isInvulnerable && 
+                projectile.position.distanceTo(hamster.position) < 1) {
+                takeDamage(projectile.userData.damage);
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+            
+            // Remove bullets that go too far
+            if (projectile.position.distanceTo(hamster.position) > 50) {
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+        } else {
+            // Seed update
+            projectile.velocity.y -= gameState.player.gravity * 1.5 * gameState.deltaTime;
+            projectile.rotation.x += 5 * gameState.deltaTime;
+            projectile.rotation.z += 3 * gameState.deltaTime;
+            
+            if (projectile.children[0]) {
+                projectile.children[0].scale.setScalar(
+                    Math.max(0.1, projectile.velocity.length() * 0.05)
+                );
+            }
+        }
+        
+        projectile.position.add(
+            projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
+        );
+
+        // Remove projectiles that fall below ground
+        if (projectile.position.y < 0) {
+            scene.remove(projectile);
+            gameState.projectiles.splice(i, 1);
+        }
+    }
+
+    // Update damage flash effect
+    if (gameState.player.damageFlashTime > 0) {
+        gameState.player.damageFlashTime -= gameState.deltaTime;
+        const flashIntensity = Math.sin(gameState.player.damageFlashTime * 20) * 0.5 + 0.5;
+        hamster.traverse(child => {
+            if (child.material) {
+                child.material.emissive = new THREE.Color(flashIntensity, 0, 0);
+            }
+        });
+    } else {
+        hamster.traverse(child => {
+            if (child.material) {
+                child.material.emissive = new THREE.Color(0, 0, 0);
+            }
+        });
+    }
+
     // Update fuel
     if (!gameState.keys.shift) {
         gameState.player.fuel = Math.min(
@@ -1331,46 +1496,6 @@ function gameLoop(currentTime) {
                 scene.add(particle);
                 gameState.projectiles.push(particle);
             });
-        }
-    }
-
-    // Update projectiles
-    for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
-        const projectile = gameState.projectiles[i];
-        
-        if (projectile.lifetime !== undefined) {
-            // Particle update
-            projectile.lifetime -= gameState.deltaTime;
-            if (projectile.lifetime <= 0) {
-                scene.remove(projectile);
-                gameState.projectiles.splice(i, 1);
-                continue;
-            }
-            projectile.material.opacity = projectile.lifetime / 0.5;
-        } else {
-            // Seed update
-            projectile.velocity.y -= gameState.player.gravity * 1.5 * gameState.deltaTime; // Increased gravity effect
-            
-            // Rotate seed for better visual
-            projectile.rotation.x += 5 * gameState.deltaTime;
-            projectile.rotation.z += 3 * gameState.deltaTime;
-            
-            // Update trail
-            if (projectile.children[0]) {
-                projectile.children[0].scale.setScalar(
-                    Math.max(0.1, projectile.velocity.length() * 0.05)
-                );
-            }
-        }
-        
-        projectile.position.add(
-            projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
-        );
-
-        // Remove seeds that fall below ground
-        if (projectile.position.y < 0) {
-            scene.remove(projectile);
-            gameState.projectiles.splice(i, 1);
         }
     }
 
@@ -1583,10 +1708,18 @@ function gameLoop(currentTime) {
 }
 
 function generateNewWorldChunk() {
+    console.log('Generating new world chunk...');
     const chunkSize = gameState.scenery.generationDistance;
     const newZ = gameState.scenery.lastGeneratedPosition - chunkSize;
     
-    // Add mountains
+    console.log('World chunk parameters:', {
+        chunkSize,
+        newZ,
+        currentPlayerZ: hamster.position.z,
+        lastGenerated: gameState.scenery.lastGeneratedPosition
+    });
+    
+    // Add mountains and trees first
     for (let i = 0; i < 3; i++) {
         const x = (Math.random() - 0.5) * 100;
         const height = 10 + Math.random() * 20;
@@ -1595,7 +1728,6 @@ function generateNewWorldChunk() {
         gameState.scenery.mountains.push(mountain);
     }
     
-    // Add trees
     for (let i = 0; i < 10; i++) {
         const x = (Math.random() - 0.5) * 80;
         const z = newZ + (Math.random() - 0.5) * 20;
@@ -1604,36 +1736,65 @@ function generateNewWorldChunk() {
         gameState.scenery.trees.push(tree);
     }
     
-    // Add birds
-    if (Math.random() < 0.7) {
-        const bird = createBird();
-        bird.position.set(
-            (Math.random() - 0.5) * 40,
-            10 + Math.random() * 10,
-            newZ + (Math.random() - 0.5) * 20
+    // Always spawn foxes (2-3 per chunk)
+    const numFoxes = 2 + Math.floor(Math.random() * 2);
+    console.log(`Attempting to spawn ${numFoxes} foxes in new chunk at Z: ${newZ}`);
+    
+    // Spawn initial foxes near the player
+    const spawnNearPlayer = gameState.enemies.length === 0;
+    
+    for (let i = 0; i < numFoxes; i++) {
+        console.log(`Creating fox ${i + 1}/${numFoxes}...`);
+        const fox = createFox();
+        
+        // Position foxes closer to player's path
+        const sideOffset = (Math.random() < 0.5 ? 1 : -1) * (5 + Math.random() * 8);
+        const zOffset = spawnNearPlayer ? 
+            -20 - Math.random() * 20 : // Spawn behind player initially
+            (Math.random() - 0.5) * 20; // Normal spawn in chunks
+        
+        fox.position.set(
+            sideOffset,
+            0,
+            spawnNearPlayer ? hamster.position.z + zOffset : newZ + zOffset
         );
-        scene.add(bird);
-        gameState.birds.push(bird);
+        
+        // Ensure fox is above ground
+        const groundHeight = terrainManager.getHeight(fox.position.x, fox.position.z);
+        fox.position.y = groundHeight + 1;
+        
+        console.log('Fox positioned at:', {
+            x: fox.position.x.toFixed(2),
+            y: fox.position.y.toFixed(2),
+            z: fox.position.z.toFixed(2),
+            sideOffset: sideOffset.toFixed(2),
+            groundHeight: groundHeight.toFixed(2)
+        });
+        
+        scene.add(fox);
+        gameState.enemies.push(fox);
     }
     
-    // Update last generated position
-    gameState.scenery.lastGeneratedPosition = newZ;
+    console.log('Current enemies count:', gameState.enemies.length);
     
     // Clean up old scenery
     const cleanupZ = hamster.position.z + 100;
-    const cleanup = (array, removeCallback) => {
-        return array.filter(item => {
-            if (item.position.z > cleanupZ) {
-                removeCallback(item);
-                return false;
-            }
-            return true;
-        });
-    };
+    console.log('Cleaning up scenery beyond Z:', cleanupZ);
     
-    gameState.scenery.mountains = cleanup(gameState.scenery.mountains, mountain => scene.remove(mountain));
-    gameState.scenery.trees = cleanup(gameState.scenery.trees, tree => scene.remove(tree));
-    gameState.birds = cleanup(gameState.birds, bird => scene.remove(bird));
+    const initialEnemies = gameState.enemies.length;
+    gameState.enemies = gameState.enemies.filter(enemy => {
+        if (enemy.position.z > cleanupZ) {
+            console.log('Removing fox at Z:', enemy.position.z);
+            scene.remove(enemy);
+            return false;
+        }
+        return true;
+    });
+    console.log(`Enemies cleanup: ${initialEnemies} -> ${gameState.enemies.length}`);
+    
+    // Update last generated position
+    gameState.scenery.lastGeneratedPosition = newZ;
+    console.log('World chunk generation complete. New last position:', newZ);
 }
 
 // Initialize first level
@@ -2276,3 +2437,277 @@ cloudManager.update(hamster.position, gameState.deltaTime);
 
 // Check if hamster is on the ground
 const isOnGround = Math.abs(hamster.position.y - terrainManager.getHeight(hamster.position.x, hamster.position.z)) < 0.1;
+
+// Create fox enemy
+function createFox() {
+    console.log('Creating new fox...');
+    const fox = new THREE.Group();
+    
+    // Body - Made larger and more visible
+    const bodyGeometry = new THREE.BoxGeometry(1.5, 1, 2);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xff3300,  // Brighter orange
+        emissive: 0xff3300,
+        emissiveIntensity: 0.3
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    fox.add(body);
+    
+    // Head - Made larger
+    const headGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+    const headMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xff3300,
+        emissive: 0xff3300,
+        emissiveIntensity: 0.3
+    });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.z = 1;
+    head.position.y = 0.3;
+    fox.add(head);
+    
+    // Ears - Made more prominent
+    const earGeometry = new THREE.ConeGeometry(0.3, 0.6, 4);
+    const earMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xff3300,
+        emissive: 0xff3300,
+        emissiveIntensity: 0.3
+    });
+    
+    const leftEar = new THREE.Mesh(earGeometry, earMaterial);
+    leftEar.position.set(0.3, 0.8, 1);
+    fox.add(leftEar);
+    
+    const rightEar = new THREE.Mesh(earGeometry, earMaterial);
+    rightEar.position.set(-0.3, 0.8, 1);
+    fox.add(rightEar);
+    
+    // Add glow effect
+    const glowGeometry = new THREE.BoxGeometry(1.7, 1.2, 2.2);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff3300,
+        transparent: true,
+        opacity: 0.3
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    fox.add(glow);
+    
+    // More aggressive properties
+    fox.userData.type = 'fox';
+    fox.userData.health = 3;
+    fox.userData.shootTimer = 0;
+    fox.userData.shootInterval = 1;
+    fox.userData.moveSpeed = 12;
+    fox.userData.state = 'chase';
+    fox.userData.chaseDistance = 30;
+    fox.userData.retreatDistance = 5;
+    
+    console.log('Fox created successfully:', {
+        type: fox.userData.type,
+        health: fox.userData.health,
+        interval: fox.userData.shootInterval,
+        speed: fox.userData.moveSpeed,
+        children: fox.children.length
+    });
+    
+    return fox;
+}
+
+// Create fox bullet
+function createFoxBullet(position, direction) {
+    const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+    const material = new THREE.MeshStandardMaterial({
+        color: 0xff0000,
+        emissive: 0xff0000,
+        emissiveIntensity: 0.5
+    });
+    const bullet = new THREE.Mesh(geometry, material);
+    bullet.position.copy(position);
+    
+    // Add trail effect
+    const trail = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 8, 8),
+        new THREE.MeshBasicMaterial({
+            color: 0xff4400,
+            transparent: true,
+            opacity: 0.6
+        })
+    );
+    bullet.add(trail);
+    
+    bullet.velocity = direction.normalize().multiplyScalar(30);
+    bullet.userData.type = 'foxBullet';
+    bullet.userData.damage = 10;
+    
+    return bullet;
+}
+
+// Add fox update function
+function updateFoxes() {
+    if (gameState.enemies.length === 0) {
+        console.log('No foxes to update');
+        return;
+    }
+    
+    console.log(`Updating ${gameState.enemies.length} foxes...`);
+    
+    gameState.enemies.forEach((fox, index) => {
+        if (fox.userData.type !== 'fox') {
+            console.warn('Non-fox enemy found:', fox.userData.type);
+            return;
+        }
+        
+        // Update shoot timer
+        fox.userData.shootTimer += gameState.deltaTime;
+        
+        // Calculate distance to player
+        const distanceToPlayer = fox.position.distanceTo(hamster.position);
+        
+        // Debug fox state
+        if (index === 0) { // Only log first fox to avoid spam
+            console.log('Fox status:', {
+                index,
+                position: {
+                    x: fox.position.x.toFixed(2),
+                    y: fox.position.y.toFixed(2),
+                    z: fox.position.z.toFixed(2)
+                },
+                distanceToPlayer: distanceToPlayer.toFixed(2),
+                state: fox.userData.state,
+                shootTimer: fox.userData.shootTimer.toFixed(2)
+            });
+        }
+        
+        // Update state based on distance
+        if (distanceToPlayer < fox.userData.retreatDistance) {
+            fox.userData.state = 'retreat';
+        } else if (distanceToPlayer > fox.userData.chaseDistance) {
+            fox.userData.state = 'chase';
+        }
+        
+        // Move based on state
+        const direction = new THREE.Vector3()
+            .subVectors(hamster.position, fox.position)
+            .normalize();
+        
+        if (fox.userData.state === 'retreat') {
+            fox.position.sub(direction.multiplyScalar(fox.userData.moveSpeed * gameState.deltaTime));
+        } else {
+            fox.position.add(direction.multiplyScalar(fox.userData.moveSpeed * gameState.deltaTime));
+        }
+        
+        // Keep fox at proper height
+        fox.position.y = terrainManager.getHeight(fox.position.x, fox.position.z) + 1;
+        
+        // Rotate to face player
+        fox.lookAt(hamster.position);
+        
+        // Shooting logic
+        if (fox.userData.shootTimer >= fox.userData.shootInterval) {
+            fox.userData.shootTimer = 0;
+            
+            // Shoot multiple bullets in a spread pattern
+            const numBullets = 3;
+            const spreadAngle = Math.PI / 8;
+            
+            for (let i = 0; i < numBullets; i++) {
+                const bulletPosition = fox.position.clone();
+                bulletPosition.y += 0.5;
+                
+                const bulletDirection = new THREE.Vector3()
+                    .subVectors(hamster.position, bulletPosition)
+                    .normalize();
+                
+                // Add spread to bullets
+                const angle = (i / (numBullets - 1) - 0.5) * spreadAngle;
+                bulletDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+                
+                const bullet = createFoxBullet(bulletPosition, bulletDirection);
+                scene.add(bullet);
+                gameState.projectiles.push(bullet);
+            }
+            
+            // Play shoot sound
+            playSound('shoot');
+        }
+    });
+}
+
+function takeDamage(amount) {
+    if (gameState.player.isInvulnerable) return;
+    
+    gameState.player.health = Math.max(0, gameState.player.health - amount);
+    gameState.player.isInvulnerable = true;
+    gameState.player.invulnerableTime = 1.5;
+    gameState.player.damageFlashTime = 0.3;
+    
+    // Visual effects
+    gameState.effects.screenShake = 0.3;
+    overlayElement.style.backgroundColor = 'rgba(255, 0, 0, 0.3)';
+    setTimeout(() => {
+        overlayElement.style.backgroundColor = 'transparent';
+    }, 100);
+    
+    // Sound effect
+    playSound('hit');
+    
+    // Create damage particles
+    for (let i = 0; i < 10; i++) {
+        const particle = createRocketParticle();
+        particle.material.color.setHex(0xff0000);
+        particle.position.copy(hamster.position);
+        particle.velocity.set(
+            (Math.random() - 0.5) * 10,
+            Math.random() * 10,
+            (Math.random() - 0.5) * 10
+        );
+        scene.add(particle);
+        gameState.projectiles.push(particle);
+    }
+    
+    // Check for game over
+    if (gameState.player.health <= 0) {
+        gameState.state = 'gameover';
+        gameOverScreen.style.display = 'block';
+        document.getElementById('gameOverScore').textContent = gameState.score;
+        
+        // Create final explosion effect
+        createExplosion(hamster.position, 0xff0000);
+        playSound('hit');
+        
+        // Hide hamster
+        hamster.visible = false;
+    }
+}
+
+// Create game over screen
+const gameOverScreen = document.createElement('div');
+gameOverScreen.style.position = 'absolute';
+gameOverScreen.style.top = '50%';
+gameOverScreen.style.left = '50%';
+gameOverScreen.style.transform = 'translate(-50%, -50%)';
+gameOverScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+gameOverScreen.style.padding = '20px';
+gameOverScreen.style.borderRadius = '10px';
+gameOverScreen.style.display = 'none';
+gameOverScreen.style.textAlign = 'center';
+gameOverScreen.style.zIndex = '1000';
+gameOverScreen.innerHTML = `
+    <h2 style="color: white; margin-bottom: 20px;">Game Over!</h2>
+    <p style="color: white; margin-bottom: 20px;">Final Score: <span id="gameOverScore">0</span></p>
+    <button id="returnHomeButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Return to Home</button>
+    <button id="retryButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Try Again</button>
+`;
+document.body.appendChild(gameOverScreen);
+
+// Add event listeners for game over buttons
+document.getElementById('returnHomeButton').addEventListener('click', () => {
+    gameOverScreen.style.display = 'none';
+    startScreen.style.display = 'block';
+    gameState.state = 'start';
+});
+
+document.getElementById('retryButton').addEventListener('click', () => {
+    gameOverScreen.style.display = 'none';
+    resetGame();
+    gameState.state = 'playing';
+});
