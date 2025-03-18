@@ -64,15 +64,15 @@ document.body.appendChild(canvas);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); // Sky blue background
 
-// Add fog to blend with sky
-scene.fog = new THREE.FogExp2(0x87CEEB, 0.008);
+// Add fog with increased density and better blending
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.015); // Increased fog density
 
-// Camera setup
+// Camera setup with adjusted FOV and far plane
 const camera = new THREE.PerspectiveCamera(
-    75, // FOV
+    60, // Reduced FOV for less distortion
     window.innerWidth / window.innerHeight,
     0.1,
-    1000
+    300 // Reduced far plane to match fog
 );
 
 // Adjust initial camera position
@@ -1268,11 +1268,15 @@ function gameLoop(currentTime) {
         if (gameState.keys.right) hamster.position.x += moveSpeed;
     }
 
-    // Update camera to follow hamster with better positioning
+    // Update camera to follow hamster with adjusted positioning
     camera.position.x = hamster.position.x;
-    camera.position.y = hamster.position.y + 5; // Increased height
-    camera.position.z = hamster.position.z + 12; // Increased distance
-    camera.lookAt(hamster.position);
+    camera.position.y = hamster.position.y + 4; // Reduced height
+    camera.position.z = hamster.position.z + 10; // Reduced distance
+    camera.lookAt(
+        hamster.position.x,
+        hamster.position.y + 1, // Look slightly above hamster
+        hamster.position.z
+    );
 
     // Update terrain based on player position
     terrainManager.update(hamster.position);
