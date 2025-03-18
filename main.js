@@ -58,6 +58,17 @@ const achievementManager = new AchievementManager();
 // Create canvas element
 const canvas = document.createElement('canvas');
 canvas.id = 'game-canvas';
+canvas.style.position = 'fixed';
+canvas.style.top = '0';
+canvas.style.left = '0';
+canvas.style.width = '100%';
+canvas.style.height = '100%';
+canvas.style.margin = '0';
+canvas.style.padding = '0';
+canvas.style.display = 'block';
+document.body.style.margin = '0';
+document.body.style.padding = '0';
+document.body.style.overflow = 'hidden';
 document.body.appendChild(canvas);
 
 // Scene setup
