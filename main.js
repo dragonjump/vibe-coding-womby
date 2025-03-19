@@ -8,6 +8,36 @@ import { AchievementManager } from './achievements.js';
 import { TerrainManager } from './terrain.js';
 import { CloudManager } from './clouds.js';
 
+// Logger utility
+const Logger = {
+    DEBUG: true,
+    
+    log: function(category, message, data = null) {
+        if (!this.DEBUG) return;
+        
+        const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+        const logMessage = `[${timestamp}] [${category}] ${message}`;
+        
+        if (data) {
+            console.log(logMessage, data);
+        } else {
+            console.log(logMessage);
+        }
+    },
+    
+    powerup: function(message, data = null) {
+        this.log('POWERUP', message, data);
+    },
+    
+    fox: function(message, data = null) {
+        this.log('FOX', message, data);
+    },
+    
+    game: function(message, data = null) {
+        this.log('GAME', message, data);
+    }
+};
+
 // Background music configuration
 const MUSIC_TRACKS = {
     TRAINING: {
@@ -147,9 +177,9 @@ const gameState = {
         maxFuel: 100,
         fuelRegenRate: 20,
         boostForce: 20,
-        seeds: 10,
-        maxSeeds: 10,
-        seedReloadTime: 1,
+        seeds: 1000,              // Changed from 10 to 1000
+        maxSeeds: 1000,          // Changed from 10 to 1000
+        seedReloadTime: 0.1,     // Decreased reload time for better usability
         lastSeedTime: 0,
         isInvulnerable: false,
         invulnerableTime: 0,
@@ -521,41 +551,81 @@ function playSound(soundType) {
     }
 }
 
-// Modify the handleClick function to use the new playSound function
+// Modify handleClick function to standardize timing
 function handleClick(event) {
-    if (gameState.state !== 'playing') return;
+    if (gameState.state !== 'playing') {
+        Logger.game('Shooting blocked - game not in playing state', {
+            currentState: gameState.state
+        });
+        return;
+    }
     
-    if (gameState.player.seeds > 0 && 
-        gameState.time - gameState.player.lastSeedTime > gameState.player.seedReloadTime * 1000) {
-        
-        // Create multiple seeds in a spread pattern
-        const numSeeds = 5;
-        const spreadAngle = Math.PI / 4;
-        
-        for (let i = 0; i < numSeeds; i++) {
-            const seed = createSeed();
-            seed.position.copy(hamster.position);
-            seed.position.y += 0.5;
+    Logger.game('Shoot attempt', {
+        seeds: gameState.player.seeds,
+        timeSinceLastShot: (gameState.time - gameState.player.lastSeedTime) / 1000,
+        reloadTime: gameState.player.seedReloadTime
+    });
+    
+    if (gameState.player.seeds > 0) {
+        if ((gameState.time - gameState.player.lastSeedTime) / 1000 > gameState.player.seedReloadTime) {
+            // Create multiple seeds in a spread pattern
+            const numSeeds = 5;  // Keep spread pattern
+            const spreadAngle = Math.PI / 4;
             
-            const angle = (i / (numSeeds - 1) - 0.5) * spreadAngle;
-            const shootDirection = new THREE.Vector3(0, 1.5, -1).normalize();
-            shootDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+            Logger.game('Creating spread shot', {
+                numSeeds,
+                spreadAngle,
+                position: {
+                    x: hamster.position.x.toFixed(2),
+                    y: hamster.position.y.toFixed(2),
+                    z: hamster.position.z.toFixed(2)
+                }
+            });
             
-            shootDirection.x += (Math.random() - 0.5) * 0.1;
-            shootDirection.y += Math.random() * 0.1;
+            for (let i = 0; i < numSeeds; i++) {
+                const seed = createSeed();
+                seed.position.copy(hamster.position);
+                seed.position.y += 0.5;
+                
+                const angle = (i / (numSeeds - 1) - 0.5) * spreadAngle;
+                const shootDirection = new THREE.Vector3(0, 1.5, -1).normalize();
+                shootDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+                
+                shootDirection.x += (Math.random() - 0.5) * 0.1;
+                shootDirection.y += Math.random() * 0.1;
+                
+                seed.velocity = shootDirection.multiplyScalar(40);
+                
+                gameState.projectiles.push(seed);
+                scene.add(seed);
+                
+                Logger.game('Seed created', {
+                    index: i,
+                    angle: angle.toFixed(2),
+                    velocity: {
+                        x: seed.velocity.x.toFixed(2),
+                        y: seed.velocity.y.toFixed(2),
+                        z: seed.velocity.z.toFixed(2)
+                    }
+                });
+            }
             
-            seed.velocity = shootDirection.multiplyScalar(40);
+            playSound('shoot');
             
-            gameState.projectiles.push(seed);
-            scene.add(seed);
+            gameState.player.seeds--;
+            gameState.player.lastSeedTime = gameState.time;
+            
+            Logger.game('Shot completed', {
+                remainingSeeds: gameState.player.seeds,
+                nextReloadTime: gameState.player.lastSeedTime + (gameState.player.seedReloadTime * 1000)
+            });
+        } else {
+            Logger.game('Shot blocked - still reloading', {
+                timeRemaining: (gameState.player.seedReloadTime - ((gameState.time - gameState.player.lastSeedTime) / 1000)).toFixed(2)
+            });
         }
-        
-        // Play shoot sound using the new playSound function
-        playSound('shoot');
-        
-        gameState.player.seeds--;
-        gameState.player.lastSeedTime = gameState.time;
-        gameState.player.seedReloadTime = 0.2;
+    } else {
+        Logger.game('Shot blocked - no seeds remaining');
     }
 }
 
@@ -637,7 +707,8 @@ levelCompleteScreen.innerHTML = `
     <h2 style="color: white; margin-bottom: 20px;">Level Complete!</h2>
     <p style="color: white; margin-bottom: 20px;">Score: <span id="finalScore">0</span></p>
     <p style="color: gold; margin-bottom: 20px;" id="newHighScore" style="display: none;">New High Score!</p>
-    <button id="nextLevelButton" style="padding: 10px 20px; margin: 5px; cursor: pointer;">Next Level</button>
+    <button id="nextLevelButton" style="
+    padding: 10px 20px; margin: 0 auto; cursor: pointer;">Next Level</button>
 `;
 document.body.appendChild(levelCompleteScreen);
 
@@ -1207,6 +1278,9 @@ document.getElementById('nextLevelButton').addEventListener('click', () => {
 
 // Update reset game function
 function resetGame() {
+    Logger.game('Resetting game...');
+    
+    // Reset game state
     gameState.score = 0;
     gameState.player.health = gameState.player.maxHealth;
     gameState.player.fuel = gameState.player.maxFuel;
@@ -1219,7 +1293,8 @@ function resetGame() {
     hamster.visible = true;
     gameState.player.velocity.set(0, 0, 0);
     
-    // Clear existing foxes and projectiles
+    // Clear existing entities
+    Logger.game('Clearing existing entities...');
     gameState.enemies.forEach(enemy => scene.remove(enemy));
     gameState.enemies.length = 0;
     gameState.projectiles.forEach(proj => scene.remove(proj));
@@ -1230,7 +1305,7 @@ function resetGame() {
     terrainManager.reset();
     
     // Spawn initial foxes around the player
-    console.log('Spawning initial foxes...');
+    Logger.game('Spawning initial foxes...');
     const numInitialFoxes = 5;
     for (let i = 0; i < numInitialFoxes; i++) {
         const fox = createFox();
@@ -1248,553 +1323,55 @@ function resetGame() {
         const groundHeight = terrainManager.getHeight(fox.position.x, fox.position.z);
         fox.position.y = groundHeight + 1;
         
-        console.log(`Spawned fox ${i} at:`, {
-            x: fox.position.x.toFixed(2),
-            y: fox.position.y.toFixed(2),
-            z: fox.position.z.toFixed(2)
+        Logger.fox('Spawned initial fox', {
+            index: i,
+            position: {
+                x: fox.position.x.toFixed(2),
+                y: fox.position.y.toFixed(2),
+                z: fox.position.z.toFixed(2)
+            }
         });
         
         scene.add(fox);
         gameState.enemies.push(fox);
     }
-    console.log(`Initial foxes spawned: ${gameState.enemies.length}`);
     
+    // Spawn initial power-ups around the player
+    Logger.game('Spawning initial power-ups');
+    const numInitialPowerUps = 3;
+    for (let i = 0; i < numInitialPowerUps; i++) {
+        const powerUpTypes = [POWERUP_TYPES.BOMB, POWERUP_TYPES.STAR, POWERUP_TYPES.CARROT];
+        const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+        
+        // Position in a circle around the player
+        const angle = (i / numInitialPowerUps) * Math.PI * 2;
+        const radius = 10; // Close to player
+        
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = terrainManager.getHeight(x, z) + 2;
+        
+        const powerUpMesh = createPowerUpMesh(randomType);
+        powerUpMesh.position.set(x, y, z);
+        scene.add(powerUpMesh);
+        
+        powerUpManager.powerUpPool.push({
+            type: randomType,
+            position: powerUpMesh.position,
+            mesh: powerUpMesh,
+            collected: false
+        });
+        
+        Logger.powerup('Spawned initial power-up', {
+            type: randomType.name,
+            position: { x, y, z },
+            index: i
+        });
+    }
+    
+    // Initialize level elements
     initializeLevelElements();
     achievementManager.startLevel();
-}
-
-// Add escape key handler for pause
-window.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-        if (gameState.state === 'playing') {
-            gameState.state = 'paused';
-            pauseMenu.style.display = 'block';
-        } else if (gameState.state === 'paused') {
-            gameState.state = 'playing';
-            pauseMenu.style.display = 'none';
-        }
-    }
-});
-
-// Pause game handlers
-document.getElementById('resumeButton').addEventListener('click', () => {
-    gameState.state = 'playing';
-    pauseMenu.style.display = 'none';
-});
-
-document.getElementById('restartButton').addEventListener('click', () => {
-    resetGame();
-    gameState.state = 'playing';
-    pauseMenu.style.display = 'none';
-});
-
-// Modify game loop to include effects and state management
-function gameLoop(currentTime) {
-    // Skip updates if paused or in level complete state
-    if (gameState.state === 'paused' || gameState.state === 'levelComplete') {
-        requestAnimationFrame(gameLoop);
-        return;
-    }
-
-    // First frame initialization
-    if (!gameState.time) {
-        gameState.time = currentTime;
-    }
-    
-    // Calculate delta time
-    gameState.deltaTime = (currentTime - gameState.time) / 1000;
-    gameState.time = currentTime;
-
-    // Update world generation
-    updateWorld();
-    
-    // Update birds
-    updateBirds();
-    
-    // Update explosions
-    updateExplosions();
-
-    // Update foxes
-    updateFoxes();
-
-    // Update hamster position based on input
-    const moveSpeed = gameState.player.speed * gameState.deltaTime;
-    
-    // Update vertical position and ground collision
-    hamster.position.y += gameState.player.velocity.y * gameState.deltaTime;
-
-    // Get terrain height at player position and check if on ground
-    const groundHeight = terrainManager.getHeight(hamster.position.x, hamster.position.z) + 1;
-    const isOnGround = hamster.position.y <= groundHeight;
-
-    // Ground collision
-    if (hamster.position.y < groundHeight) {
-        hamster.position.y = groundHeight;
-        gameState.player.velocity.y = 0;
-        gameState.player.isJumping = false;
-    }
-
-    // Apply gravity and jumping
-    if (gameState.keys.space && isOnGround) {
-        gameState.player.velocity.y = gameState.player.jumpForce;
-        gameState.player.isJumping = true;
-        playSound('jump');
-
-        // Add rocket particles when jumping
-        hamster.exhaustPoints.children.forEach(exhaustPoint => {
-            const particle = createRocketParticle();
-            const worldPos = new THREE.Vector3();
-            exhaustPoint.getWorldPosition(worldPos);
-            particle.position.copy(worldPos);
-            scene.add(particle);
-            gameState.projectiles.push(particle);
-        });
-    } else {
-        // Apply gravity
-        gameState.player.velocity.y -= gameState.player.gravity * gameState.deltaTime;
-    }
-
-    // Prevent going through mountains - add horizontal collision detection
-    const nextX = hamster.position.x + (gameState.keys.right ? moveSpeed : (gameState.keys.left ? -moveSpeed : 0));
-    const nextZ = hamster.position.z + (gameState.keys.backward ? moveSpeed : (gameState.keys.forward ? -moveSpeed : 0));
-    
-    const nextGroundHeight = terrainManager.getHeight(nextX, nextZ) + 1;
-    const heightDifference = nextGroundHeight - groundHeight;
-
-    // Only allow movement if height difference is not too steep
-    if (Math.abs(heightDifference) < 2) {
-        if (gameState.keys.forward) hamster.position.z -= moveSpeed;
-        if (gameState.keys.backward) hamster.position.z += moveSpeed;
-        if (gameState.keys.left) hamster.position.x -= moveSpeed;
-        if (gameState.keys.right) hamster.position.x += moveSpeed;
-    }
-
-    // Update camera to follow hamster with adjusted positioning
-    camera.position.x = hamster.position.x;
-    camera.position.y = hamster.position.y + 4; // Reduced height
-    camera.position.z = hamster.position.z + 10; // Reduced distance
-    camera.lookAt(
-        hamster.position.x,
-        hamster.position.y + 1, // Look slightly above hamster
-        hamster.position.z
-    );
-
-    // Update terrain based on player position
-    terrainManager.update(hamster.position);
-
-    // Generate new world elements when player moves forward
-    if (hamster.position.z < gameState.worldPosition - 50) {
-        gameState.worldPosition = Math.floor(hamster.position.z / 50) * 50;
-        generateNewWorldChunk();
-    }
-
-    // Animate clouds with varied movement
-    cloudManager.clouds.forEach((cloud, index) => {
-        const speed = 0.0003 + (index % 3) * 0.0002;
-        const amplitude = 0.01 + (index % 2) * 0.01;
-        
-        cloud.position.x += Math.sin(currentTime * speed + index) * amplitude;
-        cloud.position.y += Math.cos(currentTime * speed + index) * (amplitude * 0.5);
-        cloud.rotation.y += 0.0001 * (1 + index % 2);
-    });
-
-    // Update projectiles and check collisions
-    for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
-        const projectile = gameState.projectiles[i];
-        
-        if (projectile.lifetime !== undefined) {
-            // Particle update
-            projectile.lifetime -= gameState.deltaTime;
-            if (projectile.lifetime <= 0) {
-                scene.remove(projectile);
-                gameState.projectiles.splice(i, 1);
-                continue;
-            }
-            projectile.material.opacity = projectile.lifetime / 0.5;
-        } else if (projectile.userData.type === 'foxBullet') {
-            // Fox bullet update
-            projectile.position.add(
-                projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
-            );
-            
-            // Check collision with player
-            if (!gameState.player.isInvulnerable && 
-                projectile.position.distanceTo(hamster.position) < 1) {
-                takeDamage(projectile.userData.damage);
-                scene.remove(projectile);
-                gameState.projectiles.splice(i, 1);
-                continue;
-            }
-            
-            // Remove bullets that go too far
-            if (projectile.position.distanceTo(hamster.position) > 50) {
-                scene.remove(projectile);
-                gameState.projectiles.splice(i, 1);
-                continue;
-            }
-        } else {
-            // Seed update
-            projectile.velocity.y -= gameState.player.gravity * 1.5 * gameState.deltaTime;
-            projectile.rotation.x += 5 * gameState.deltaTime;
-            projectile.rotation.z += 3 * gameState.deltaTime;
-            
-            if (projectile.children[0]) {
-                projectile.children[0].scale.setScalar(
-                    Math.max(0.1, projectile.velocity.length() * 0.05)
-                );
-            }
-        }
-        
-        projectile.position.add(
-            projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
-        );
-
-        // Remove projectiles that fall below ground
-        if (projectile.position.y < 0) {
-            scene.remove(projectile);
-            gameState.projectiles.splice(i, 1);
-        }
-    }
-
-    // Update damage flash effect
-    if (gameState.player.damageFlashTime > 0) {
-        gameState.player.damageFlashTime -= gameState.deltaTime;
-        const flashIntensity = Math.sin(gameState.player.damageFlashTime * 20) * 0.5 + 0.5;
-        hamster.traverse(child => {
-            if (child.material) {
-                child.material.emissive = new THREE.Color(flashIntensity, 0, 0);
-            }
-        });
-    } else {
-        hamster.traverse(child => {
-            if (child.material) {
-                child.material.emissive = new THREE.Color(0, 0, 0);
-            }
-        });
-    }
-
-    // Update fuel
-    if (!gameState.keys.shift) {
-        gameState.player.fuel = Math.min(
-            gameState.player.fuel + gameState.player.fuelRegenRate * gameState.deltaTime,
-            gameState.player.maxFuel
-        );
-    }
-
-    // Apply rocket boost
-    if (gameState.keys.shift && gameState.player.fuel > 0) {
-        gameState.player.velocity.y += gameState.player.boostForce * gameState.deltaTime;
-        gameState.player.fuel -= 30 * gameState.deltaTime;
-
-        // Add rocket particles from multiple exhaust points
-        if (Math.random() < 0.3) {
-            hamster.exhaustPoints.children.forEach(exhaustPoint => {
-                const particle = createRocketParticle();
-                const worldPos = new THREE.Vector3();
-                exhaustPoint.getWorldPosition(worldPos);
-                particle.position.copy(worldPos);
-                scene.add(particle);
-                gameState.projectiles.push(particle);
-            });
-        }
-    }
-
-    // Regenerate seeds over time
-    if (gameState.player.seeds < gameState.player.maxSeeds && 
-        currentTime - gameState.player.lastSeedTime > gameState.player.seedReloadTime * 1000) {
-        gameState.player.seeds++;
-    }
-
-    // Animate collectibles
-    gameState.collectibles.forEach(seed => {
-        seed.position.y = seed.userData.baseY + Math.sin(currentTime * 0.002) * 0.2;
-        seed.rotation.y += 0.02;
-        
-        // Check collection
-        if (seed.visible && hamster.position.distanceTo(seed.position) < 1) {
-            seed.visible = false;
-            const baseScore = 100;
-            const comboScore = baseScore * gameState.combo.multiplier;
-            gameState.score += comboScore;
-            gameState.player.seeds = Math.min(gameState.player.maxSeeds, gameState.player.seeds + 3);
-            
-            // Update combo
-            incrementCombo(seed.position);
-            
-            playSound('collect');
-            gameState.effects.screenShake = 0.1;
-            
-            // Show score popup
-            showScorePopup(comboScore, seed.position);
-            
-            // Create collection effect
-            for (let i = 0; i < 10; i++) {
-                const particle = createRocketParticle();
-                particle.material.color.setHex(0xFFD700);
-                particle.position.copy(seed.position);
-                particle.velocity.set(
-                    (Math.random() - 0.5) * 5,
-                    Math.random() * 5,
-                    (Math.random() - 0.5) * 5
-                );
-                scene.add(particle);
-                gameState.projectiles.push(particle);
-            }
-            achievementManager.collectSeed();
-        }
-    });
-
-    // Check obstacle collisions
-    gameState.obstacles.forEach(obstacle => {
-        const hamsterBox = new THREE.Box3().setFromObject(hamster);
-        if (!gameState.player.isInvulnerable && hamsterBox.intersectsBox(obstacle.userData.boundingBox)) {
-            playSound('hit');
-            gameState.effects.screenShake = 0.3;
-            
-            // Flash overlay
-            overlayElement.style.backgroundColor = 'rgba(255, 0, 0, 0.3)';
-            setTimeout(() => {
-                overlayElement.style.backgroundColor = 'transparent';
-            }, 100);
-            
-            // Make player invulnerable briefly
-            gameState.player.isInvulnerable = true;
-            gameState.player.invulnerableTime = 1.5;
-            gameState.player.flashTime = 0;
-            
-            // Collision response
-            const pushDirection = hamster.position.clone().sub(obstacle.position).normalize();
-            hamster.position.add(pushDirection.multiplyScalar(0.1));
-            gameState.player.velocity.multiplyScalar(0.5);
-            achievementManager.hitObstacleEvent();
-        }
-    });
-
-    // Update screen shake effect
-    if (gameState.effects.screenShake > 0) {
-        const shakeIntensity = gameState.effects.screenShake;
-        camera.position.x += (Math.random() - 0.5) * shakeIntensity;
-        camera.position.y += (Math.random() - 0.5) * shakeIntensity;
-        gameState.effects.screenShake *= 0.9;
-    }
-
-    // Update player invulnerability
-    if (gameState.player.isInvulnerable) {
-        gameState.player.invulnerableTime -= gameState.deltaTime;
-        gameState.player.flashTime += gameState.deltaTime * 10;
-        
-        // Flash effect
-        hamster.traverse(child => {
-            if (child.material) {
-                child.material.transparent = true;
-                child.material.opacity = Math.sin(gameState.player.flashTime) * 0.5 + 0.5;
-            }
-        });
-        
-        if (gameState.player.invulnerableTime <= 0) {
-            gameState.player.isInvulnerable = false;
-            hamster.traverse(child => {
-                if (child.material) {
-                    child.material.transparent = false;
-                    child.material.opacity = 1;
-                }
-            });
-        }
-    }
-
-    // Add obstacle updates
-    updateObstacles(currentTime);
-
-    // Check for level completion
-    checkLevelComplete();
-
-    // Update UI with level info
-    updateUI();
-
-    // Update power-ups
-    powerUpManager.updatePowerUps(gameState.deltaTime, currentTime);
-    
-    // Check power-up collection
-    powerUpManager.powerUpPool.forEach(powerUp => {
-        if (!powerUp.collected && powerUp.mesh && 
-            hamster.position.distanceTo(powerUp.position) < 1.5) {
-            
-            powerUp.collected = true;
-            powerUp.mesh.visible = false;
-            
-            // Activate power-up
-            powerUpManager.activatePowerUp(powerUp, gameState.player);
-            
-            // Play collect sound
-            playSound('collect');
-            
-            // Visual effects
-            gameState.effects.screenShake = 0.2;
-            overlayElement.style.backgroundColor = `rgba(${powerUp.type.color.toString(16)}, 0.2)`;
-            setTimeout(() => {
-                overlayElement.style.backgroundColor = 'transparent';
-            }, 100);
-            
-            // Create collection particles
-            for (let i = 0; i < 15; i++) {
-                const particle = createRocketParticle();
-                particle.material.color.setHex(powerUp.type.color);
-                particle.position.copy(powerUp.position);
-                particle.velocity.set(
-                    (Math.random() - 0.5) * 8,
-                    Math.random() * 8,
-                    (Math.random() - 0.5) * 8
-                );
-                scene.add(particle);
-                gameState.projectiles.push(particle);
-            }
-            achievementManager.collectPowerUp();
-        }
-    });
-
-    // Track flight time for achievement
-    const isAirborne = hamster.position.y > 2.1;
-    achievementManager.updateFlightTime(isAirborne, gameState.deltaTime);
-
-    // Update day/night cycle
-    dayNightCycle.update(gameState.deltaTime);
-    
-    // Update particle system
-    particleSystem.update(gameState.deltaTime);
-    
-    // Update spotlight to follow player
-    lights.spotlight.position.set(
-        hamster.position.x,
-        20,
-        hamster.position.z
-    );
-    lights.spotlight.target = hamster;
-
-    // Update combo system
-    updateCombo(gameState.deltaTime);
-    
-    // Update combo text flash effect
-    if (gameState.effects.comboFlash > 0) {
-        gameState.effects.comboFlash -= gameState.deltaTime;
-        const flash = Math.sin(gameState.effects.comboFlash * 20) * 0.5 + 0.5;
-        gameState.effects.comboText.style.textShadow = 
-            `0 0 ${10 + flash * 20}px rgba(255, ${flash * 255}, 0, ${flash})`;
-    }
-
-    // Check bird collisions
-    gameState.birds.forEach(bird => {
-        if (!gameState.player.isInvulnerable && hamster.position.distanceTo(bird.position) < 1) {
-            createExplosion(hamster.position);
-            playSound('hit');
-            gameState.effects.screenShake = 0.3;
-            
-            // Make player invulnerable
-            gameState.player.isInvulnerable = true;
-            gameState.player.invulnerableTime = 1.5;
-            gameState.player.flashTime = 0;
-            
-            // Push player away from bird
-            const pushDirection = hamster.position.clone().sub(bird.position).normalize();
-            gameState.player.velocity.add(pushDirection.multiplyScalar(15));
-        }
-    });
-
-    // Only render if not in start state
-    if (gameState.state !== 'start') {
-        renderer.render(scene, camera);
-    }
-
-    requestAnimationFrame(gameLoop);
-}
-
-function generateNewWorldChunk() {
-    console.log('Generating new world chunk...');
-    const chunkSize = gameState.scenery.generationDistance;
-    const newZ = gameState.scenery.lastGeneratedPosition - chunkSize;
-    
-    console.log('World chunk parameters:', {
-        chunkSize,
-        newZ,
-        currentPlayerZ: hamster.position.z,
-        lastGenerated: gameState.scenery.lastGeneratedPosition
-    });
-    
-    // Add mountains and trees first
-    for (let i = 0; i < 3; i++) {
-        const x = (Math.random() - 0.5) * 100;
-        const height = 10 + Math.random() * 20;
-        const mountain = createMountain(x, newZ, height);
-        scene.add(mountain);
-        gameState.scenery.mountains.push(mountain);
-    }
-    
-    for (let i = 0; i < 10; i++) {
-        const x = (Math.random() - 0.5) * 80;
-        const z = newZ + (Math.random() - 0.5) * 20;
-        const tree = createTree(x, z);
-        scene.add(tree);
-        gameState.scenery.trees.push(tree);
-    }
-    
-    // Always spawn foxes (2-3 per chunk)
-    const numFoxes = 2 + Math.floor(Math.random() * 2);
-    console.log(`Attempting to spawn ${numFoxes} foxes in new chunk at Z: ${newZ}`);
-    
-    // Spawn initial foxes near the player
-    const spawnNearPlayer = gameState.enemies.length === 0;
-    
-    for (let i = 0; i < numFoxes; i++) {
-        console.log(`Creating fox ${i + 1}/${numFoxes}...`);
-        const fox = createFox();
-        
-        // Position foxes closer to player's path
-        const sideOffset = (Math.random() < 0.5 ? 1 : -1) * (5 + Math.random() * 8);
-        const zOffset = spawnNearPlayer ? 
-            -20 - Math.random() * 20 : // Spawn behind player initially
-            (Math.random() - 0.5) * 20; // Normal spawn in chunks
-        
-        fox.position.set(
-            sideOffset,
-            0,
-            spawnNearPlayer ? hamster.position.z + zOffset : newZ + zOffset
-        );
-        
-        // Ensure fox is above ground
-        const groundHeight = terrainManager.getHeight(fox.position.x, fox.position.z);
-        fox.position.y = groundHeight + 1;
-        
-        console.log('Fox positioned at:', {
-            x: fox.position.x.toFixed(2),
-            y: fox.position.y.toFixed(2),
-            z: fox.position.z.toFixed(2),
-            sideOffset: sideOffset.toFixed(2),
-            groundHeight: groundHeight.toFixed(2)
-        });
-        
-        scene.add(fox);
-        gameState.enemies.push(fox);
-    }
-    
-    console.log('Current enemies count:', gameState.enemies.length);
-    
-    // Clean up old scenery
-    const cleanupZ = hamster.position.z + 100;
-    console.log('Cleaning up scenery beyond Z:', cleanupZ);
-    
-    const initialEnemies = gameState.enemies.length;
-    gameState.enemies = gameState.enemies.filter(enemy => {
-        if (enemy.position.z > cleanupZ) {
-            console.log('Removing fox at Z:', enemy.position.z);
-            scene.remove(enemy);
-            return false;
-        }
-        return true;
-    });
-    console.log(`Enemies cleanup: ${initialEnemies} -> ${gameState.enemies.length}`);
-    
-    // Update last generated position
-    gameState.scenery.lastGeneratedPosition = newZ;
-    console.log('World chunk generation complete. New last position:', newZ);
 }
 
 // Initialize first level
@@ -2734,3 +2311,390 @@ document.getElementById('retryButton').addEventListener('click', () => {
     resetGame();
     gameState.state = 'playing';
 });
+
+function generateNewWorldChunk() {
+    const chunkSize = gameState.scenery.generationDistance;
+    
+    Logger.game('Generating new world chunk', {
+        chunkSize: chunkSize,
+        newZ: gameState.scenery.lastGeneratedPosition - chunkSize
+    });
+    
+    const newZ = gameState.scenery.lastGeneratedPosition - chunkSize;
+    
+    // Spawn power-ups with 80% chance per chunk (increased from 20%)
+    if (Math.random() < 0.8) {
+        const powerUpTypes = [POWERUP_TYPES.BOMB, POWERUP_TYPES.STAR, POWERUP_TYPES.CARROT];
+        const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+        
+        // Position power-ups closer to the player's path
+        const x = (Math.random() - 0.5) * 10; // Reduced from 20 to 10 for easier access
+        const z = newZ + (Math.random() - 0.5) * 10; // Reduced from 20 to 10
+        const y = terrainManager.getHeight(x, z) + 2;
+        
+        const powerUpMesh = createPowerUpMesh(randomType);
+        powerUpMesh.position.set(x, y, z);
+        scene.add(powerUpMesh);
+        
+        powerUpManager.powerUpPool.push({
+            type: randomType,
+            position: powerUpMesh.position,
+            mesh: powerUpMesh,
+            collected: false
+        });
+        
+        Logger.powerup('Spawned power-up', {
+            type: randomType.name,
+            position: { x, y, z },
+            totalPowerUps: powerUpManager.powerUpPool.length
+        });
+    }
+    
+    // Update the last generated position
+    gameState.scenery.lastGeneratedPosition = newZ;
+}
+
+// Inside gameLoop function, update the power-up collection check
+// ... existing code ...
+
+// Check power-up collection
+powerUpManager.powerUpPool.forEach((powerUp, index) => {
+    if (!powerUp.collected && powerUp.mesh && 
+        hamster.position.distanceTo(powerUp.position) < 1.5) {
+        
+        Logger.powerup('Power-up collected', {
+            type: powerUp.type.name,
+            position: powerUp.position,
+            playerPos: hamster.position,
+            remainingPowerUps: powerUpManager.powerUpPool.length - 1
+        });
+        
+        powerUp.collected = true;
+        powerUp.mesh.visible = false;
+        scene.remove(powerUp.mesh);
+        
+        // Activate power-up with game state context
+        powerUp.type.effect(gameState.player, {
+            scene: scene,
+            enemies: gameState.enemies,
+            score: gameState.score,
+            effects: gameState.effects,
+            projectiles: gameState.projectiles,
+            time: gameState.time
+        });
+        
+        // Visual and sound effects
+        createExplosion(powerUp.position, powerUp.type.color);
+        playSound('collect');
+        
+        // Screen effects
+        gameState.effects.screenShake = 0.2;
+        overlayElement.style.backgroundColor = `rgba(${powerUp.type.color.toString(16)}, 0.2)`;
+        setTimeout(() => {
+            overlayElement.style.backgroundColor = 'transparent';
+        }, 100);
+        
+        // Remove from pool
+        powerUpManager.powerUpPool.splice(index, 1);
+        
+        Logger.powerup('Power-up effect activated', {
+            type: powerUp.type.name,
+            remainingPowerUps: powerUpManager.powerUpPool.length
+        });
+    }
+});
+
+// ... existing code ...
+
+// Add game loop function
+function gameLoop(currentTime) {
+    // Skip updates if paused or in level complete state
+    if (gameState.state === 'paused' || gameState.state === 'levelComplete') {
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
+    // First frame initialization
+    if (!gameState.time) {
+        gameState.time = currentTime;
+    }
+    
+    // Calculate delta time
+    gameState.deltaTime = (currentTime - gameState.time) / 1000;
+    gameState.time = currentTime;
+
+    // Update world generation
+    updateWorld();
+    
+    // Update birds
+    updateBirds();
+    
+    // Update explosions
+    updateExplosions();
+
+    // Update foxes
+    updateFoxes();
+
+    // Update hamster position based on input
+    const moveSpeed = gameState.player.speed * gameState.deltaTime;
+    
+    // Update vertical position and ground collision
+    hamster.position.y += gameState.player.velocity.y * gameState.deltaTime;
+
+    // Get terrain height at player position and check if on ground
+    const groundHeight = terrainManager.getHeight(hamster.position.x, hamster.position.z) + 1;
+    const isOnGround = hamster.position.y <= groundHeight;
+
+    // Ground collision
+    if (hamster.position.y < groundHeight) {
+        hamster.position.y = groundHeight;
+        gameState.player.velocity.y = 0;
+        gameState.player.isJumping = false;
+    }
+
+    // Apply gravity and jumping
+    if (gameState.keys.space && isOnGround) {
+        gameState.player.velocity.y = gameState.player.jumpForce;
+        gameState.player.isJumping = true;
+        playSound('jump');
+
+        // Add rocket particles when jumping
+        hamster.exhaustPoints.children.forEach(exhaustPoint => {
+            const particle = createRocketParticle();
+            const worldPos = new THREE.Vector3();
+            exhaustPoint.getWorldPosition(worldPos);
+            particle.position.copy(worldPos);
+            scene.add(particle);
+            gameState.projectiles.push(particle);
+        });
+    } else {
+        // Apply gravity
+        gameState.player.velocity.y -= gameState.player.gravity * gameState.deltaTime;
+    }
+
+    // Prevent going through mountains - add horizontal collision detection
+    const nextX = hamster.position.x + (gameState.keys.right ? moveSpeed : (gameState.keys.left ? -moveSpeed : 0));
+    const nextZ = hamster.position.z + (gameState.keys.backward ? moveSpeed : (gameState.keys.forward ? -moveSpeed : 0));
+    
+    const nextGroundHeight = terrainManager.getHeight(nextX, nextZ) + 1;
+    const heightDifference = nextGroundHeight - groundHeight;
+
+    // Only allow movement if height difference is not too steep
+    if (Math.abs(heightDifference) < 2) {
+        if (gameState.keys.forward) hamster.position.z -= moveSpeed;
+        if (gameState.keys.backward) hamster.position.z += moveSpeed;
+        if (gameState.keys.left) hamster.position.x -= moveSpeed;
+        if (gameState.keys.right) hamster.position.x += moveSpeed;
+    }
+
+    // Update camera to follow hamster with adjusted positioning
+    camera.position.x = hamster.position.x;
+    camera.position.y = hamster.position.y + 4; // Reduced height
+    camera.position.z = hamster.position.z + 10; // Reduced distance
+    camera.lookAt(
+        hamster.position.x,
+        hamster.position.y + 1, // Look slightly above hamster
+        hamster.position.z
+    );
+
+    // Update terrain based on player position
+    terrainManager.update(hamster.position);
+
+    // Generate new world elements when player moves forward
+    if (hamster.position.z < gameState.worldPosition - 50) {
+        gameState.worldPosition = Math.floor(hamster.position.z / 50) * 50;
+        generateNewWorldChunk();
+    }
+
+    // Update projectiles and check collisions
+    for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
+        const projectile = gameState.projectiles[i];
+        
+        if (projectile.lifetime !== undefined) {
+            // Particle update
+            projectile.lifetime -= gameState.deltaTime;
+            if (projectile.lifetime <= 0) {
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+            projectile.material.opacity = projectile.lifetime / 0.5;
+        } else if (projectile.userData.type === 'foxBullet') {
+            // Fox bullet update
+            projectile.position.add(
+                projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
+            );
+            
+            // Check collision with player
+            if (!gameState.player.isInvulnerable && 
+                projectile.position.distanceTo(hamster.position) < 1) {
+                takeDamage(projectile.userData.damage);
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+            
+            // Remove bullets that go too far
+            if (projectile.position.distanceTo(hamster.position) > 50) {
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+        } else {
+            // Seed update
+            projectile.velocity.y -= gameState.player.gravity * 1.5 * gameState.deltaTime;
+            projectile.rotation.x += 5 * gameState.deltaTime;
+            projectile.rotation.z += 3 * gameState.deltaTime;
+        }
+        
+        projectile.position.add(
+            projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
+        );
+
+        // Remove projectiles that fall below ground
+        if (projectile.position.y < 0) {
+            scene.remove(projectile);
+            gameState.projectiles.splice(i, 1);
+        }
+    }
+
+    // Update damage flash effect
+    if (gameState.player.damageFlashTime > 0) {
+        gameState.player.damageFlashTime -= gameState.deltaTime;
+        const flashIntensity = Math.sin(gameState.player.damageFlashTime * 20) * 0.5 + 0.5;
+        hamster.traverse(child => {
+            if (child.material) {
+                child.material.emissive = new THREE.Color(flashIntensity, 0, 0);
+            }
+        });
+    } else {
+        hamster.traverse(child => {
+            if (child.material) {
+                child.material.emissive = new THREE.Color(0, 0, 0);
+            }
+        });
+    }
+
+    // Update fuel
+    if (!gameState.keys.shift) {
+        gameState.player.fuel = Math.min(
+            gameState.player.fuel + gameState.player.fuelRegenRate * gameState.deltaTime,
+            gameState.player.maxFuel
+        );
+    }
+
+    // Apply rocket boost
+    if (gameState.keys.shift && gameState.player.fuel > 0) {
+        gameState.player.velocity.y += gameState.player.boostForce * gameState.deltaTime;
+        gameState.player.fuel -= 30 * gameState.deltaTime;
+
+        // Add rocket particles
+        if (Math.random() < 0.3) {
+            hamster.exhaustPoints.children.forEach(exhaustPoint => {
+                const particle = createRocketParticle();
+                const worldPos = new THREE.Vector3();
+                exhaustPoint.getWorldPosition(worldPos);
+                particle.position.copy(worldPos);
+                scene.add(particle);
+                gameState.projectiles.push(particle);
+            });
+        }
+    }
+
+    // Update power-ups
+    powerUpManager.updatePowerUps(gameState.deltaTime, currentTime);
+    
+    // Check power-up collection
+    powerUpManager.powerUpPool.forEach((powerUp, index) => {
+        if (!powerUp.collected && powerUp.mesh && 
+            hamster.position.distanceTo(powerUp.position) < 1.5) {
+            
+            Logger.powerup('Power-up collected', {
+                type: powerUp.type.name,
+                position: powerUp.position,
+                playerPos: hamster.position,
+                remainingPowerUps: powerUpManager.powerUpPool.length - 1
+            });
+            
+            powerUp.collected = true;
+            powerUp.mesh.visible = false;
+            scene.remove(powerUp.mesh);
+            
+            // Activate power-up
+            powerUp.type.effect(gameState.player, {
+                scene: scene,
+                enemies: gameState.enemies,
+                score: gameState.score,
+                effects: gameState.effects,
+                projectiles: gameState.projectiles,
+                time: gameState.time
+            });
+            
+            // Effects
+            createExplosion(powerUp.position, powerUp.type.color);
+            playSound('collect');
+            gameState.effects.screenShake = 0.2;
+            
+            powerUpManager.powerUpPool.splice(index, 1);
+        }
+    });
+
+    // Update screen shake effect
+    if (gameState.effects.screenShake > 0) {
+        const shakeIntensity = gameState.effects.screenShake;
+        camera.position.x += (Math.random() - 0.5) * shakeIntensity;
+        camera.position.y += (Math.random() - 0.5) * shakeIntensity;
+        gameState.effects.screenShake *= 0.9;
+    }
+
+    // Update player invulnerability
+    if (gameState.player.isInvulnerable) {
+        gameState.player.invulnerableTime -= gameState.deltaTime;
+        gameState.player.flashTime += gameState.deltaTime * 10;
+        
+        // Flash effect
+        hamster.traverse(child => {
+            if (child.material) {
+                child.material.transparent = true;
+                child.material.opacity = Math.sin(gameState.player.flashTime) * 0.5 + 0.5;
+            }
+        });
+        
+        if (gameState.player.invulnerableTime <= 0) {
+            gameState.player.isInvulnerable = false;
+            hamster.traverse(child => {
+                if (child.material) {
+                    child.material.transparent = false;
+                    child.material.opacity = 1;
+                }
+            });
+        }
+    }
+
+    // Update obstacles
+    updateObstacles(currentTime);
+
+    // Check for level completion
+    checkLevelComplete();
+
+    // Update UI
+    updateUI();
+
+    // Update day/night cycle
+    dayNightCycle.update(gameState.deltaTime);
+    
+    // Update particle system
+    particleSystem.update(gameState.deltaTime);
+    
+    // Update combo system
+    updateCombo(gameState.deltaTime);
+
+    // Only render if not in start state
+    if (gameState.state !== 'start') {
+        renderer.render(scene, camera);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+// ... existing code ...

@@ -1,135 +1,139 @@
-// Power-up configurations
+// Power-up types definition
 export const POWERUP_TYPES = {
-    SPEED_BOOST: {
-        id: 'speed',
-        name: 'Speed Boost',
-        color: 0x00FF00,
-        duration: 5,
-        effect: (player) => {
-            player.speed *= 1.5;
-            player.boostForce *= 1.3;
-        },
-        revert: (player) => {
-            player.speed /= 1.5;
-            player.boostForce /= 1.3;
+    BOMB: {
+        name: 'Bomb',
+        color: 0xff0000,
+        duration: 1,
+        effect: (player, gameState) => {
+            // Destroy all foxes with explosion effects
+            gameState.enemies.forEach(fox => {
+                createExplosion(fox.position, 0xff3300);
+                gameState.scene.remove(fox);
+                
+                const score = 200;
+                gameState.score += score;
+                showScorePopup(score, fox.position);
+            });
+            gameState.enemies.length = 0;
+            playSound('hit');
+            gameState.effects.screenShake = 0.5;
         }
     },
-    SHIELD: {
-        id: 'shield',
-        name: 'Shield',
-        color: 0x0088FF,
-        duration: 8,
-        effect: (player) => {
-            player.isInvulnerable = true;
-        },
-        revert: (player) => {
-            player.isInvulnerable = false;
+    STAR: {
+        name: 'Star',
+        color: 0xffff00,
+        duration: 10,
+        effect: (player, gameState) => {
+            player.starPowerActive = true;
+            player.originalShoot = player.shoot;
+            
+            // Override shooting behavior
+            player.shoot = () => {
+                if (player.seeds > 0 && 
+                    gameState.time - player.lastSeedTime > player.seedReloadTime * 1000) {
+                    
+                    const numDirections = 8;
+                    for (let i = 0; i < numDirections; i++) {
+                        const angle = (i / numDirections) * Math.PI * 2;
+                        const direction = new THREE.Vector3(
+                            Math.cos(angle),
+                            0.5,
+                            Math.sin(angle)
+                        ).normalize();
+                        
+                        const seed = createSeed();
+                        seed.position.copy(player.position);
+                        seed.position.y += 0.5;
+                        seed.velocity = direction.multiplyScalar(40);
+                        
+                        gameState.projectiles.push(seed);
+                        gameState.scene.add(seed);
+                    }
+                    
+                    playSound('shoot');
+                    player.seeds--;
+                    player.lastSeedTime = gameState.time;
+                    player.seedReloadTime = 0.2;
+                }
+            };
+            
+            // Restore original shooting after duration
+            setTimeout(() => {
+                player.shoot = player.originalShoot;
+                player.starPowerActive = false;
+            }, 10000);
         }
     },
-    RAPID_FIRE: {
-        id: 'rapid',
-        name: 'Rapid Fire',
-        color: 0xFF0000,
-        duration: 6,
-        effect: (player) => {
-            player.seedReloadTime *= 0.3;
-            player.maxSeeds += 5;
-        },
-        revert: (player) => {
-            player.seedReloadTime /= 0.3;
-            player.maxSeeds -= 5;
-        }
-    },
-    FUEL_REFILL: {
-        id: 'fuel',
-        name: 'Fuel Refill',
-        color: 0xFFAA00,
-        duration: 0, // Instant effect
-        effect: (player) => {
-            player.fuel = player.maxFuel;
-            player.fuelRegenRate *= 2;
-        },
-        revert: (player) => {
-            player.fuelRegenRate /= 2;
+    CARROT: {
+        name: 'Carrot',
+        color: 0xff6600,
+        duration: 1,
+        effect: (player, gameState) => {
+            const healAmount = player.maxHealth * 0.2;
+            player.health = Math.min(player.maxHealth, player.health + healAmount);
+            
+            createHealEffect(player.position);
+            playSound('collect');
+            showScorePopup(`+${Math.round(healAmount)} HP`, player.position);
         }
     }
 };
 
+// Power-up manager class
 export class PowerUpManager {
     constructor() {
-        this.activePowerUps = new Map();
         this.powerUpPool = [];
+        this.activePowerUps = [];
     }
-
-    createPowerUp(type, position) {
-        const powerUp = {
-            type: POWERUP_TYPES[type],
-            position: position.clone(),
-            rotation: 0,
-            collected: false,
-            baseY: position.y,
-            mesh: null
-        };
-        this.powerUpPool.push(powerUp);
-        return powerUp;
-    }
-
+    
     updatePowerUps(deltaTime, currentTime) {
         // Update active power-ups
-        for (const [id, powerUp] of this.activePowerUps.entries()) {
+        this.activePowerUps = this.activePowerUps.filter(powerUp => {
             powerUp.timeRemaining -= deltaTime;
-            if (powerUp.timeRemaining <= 0) {
-                this.deactivatePowerUp(id);
-            }
-        }
-
-        // Animate power-up meshes
-        this.powerUpPool.forEach(powerUp => {
-            if (powerUp.mesh && !powerUp.collected) {
-                powerUp.rotation += deltaTime * 2;
-                powerUp.mesh.rotation.y = powerUp.rotation;
-                powerUp.mesh.position.y = powerUp.baseY + Math.sin(currentTime * 0.002) * 0.3;
-            }
+            return powerUp.timeRemaining > 0;
         });
     }
-
+    
     activatePowerUp(powerUp, player) {
         if (powerUp.type.duration > 0) {
-            const id = Date.now().toString();
-            this.activePowerUps.set(id, {
-                type: powerUp.type,
-                timeRemaining: powerUp.type.duration,
-                player: player
+            this.activePowerUps.push({
+                name: powerUp.type.name,
+                timeRemaining: powerUp.type.duration
             });
-            powerUp.type.effect(player);
-        } else {
-            // Instant effect
-            powerUp.type.effect(player);
-            powerUp.type.revert(player);
         }
+        powerUp.type.effect(player);
     }
-
-    deactivatePowerUp(id) {
-        const powerUp = this.activePowerUps.get(id);
-        if (powerUp) {
-            powerUp.type.revert(powerUp.player);
-            this.activePowerUps.delete(id);
-        }
-    }
-
+    
     getActivePowerUps() {
-        return Array.from(this.activePowerUps.entries()).map(([id, powerUp]) => ({
-            name: powerUp.type.name,
-            timeRemaining: Math.ceil(powerUp.timeRemaining)
-        }));
+        return this.activePowerUps;
     }
+}
 
-    clearPowerUps() {
-        // Deactivate all active power-ups
-        for (const [id, powerUp] of this.activePowerUps.entries()) {
-            powerUp.type.revert(powerUp.player);
-        }
-        this.activePowerUps.clear();
-        this.powerUpPool = [];
+// Helper function to create heal effect
+function createHealEffect(position) {
+    const particleCount = 20;
+    const particles = [];
+    
+    for (let i = 0; i < particleCount; i++) {
+        const particle = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4),
+            new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                transparent: true,
+                opacity: 1
+            })
+        );
+        
+        particle.position.copy(position);
+        particle.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 5,
+            Math.random() * 5,
+            (Math.random() - 0.5) * 5
+        );
+        particle.lifetime = 1 + Math.random();
+        
+        particles.push(particle);
     }
+    
+    return particles;
 } 
