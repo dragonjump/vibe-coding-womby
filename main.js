@@ -1306,10 +1306,47 @@ function resetGame() {
     gameState.enemies.length = 0;
     gameState.projectiles.forEach(proj => scene.remove(proj));
     gameState.projectiles.length = 0;
+    gameState.collectibles.forEach(coll => scene.remove(coll));
+    gameState.collectibles.length = 0;
     
     // Clear and reinitialize world elements
     cloudManager.dispose();
     terrainManager.reset();
+    
+    // TEST: Spawn potions in a circle around the player
+    Logger.game('Spawning test potions...');
+    const numTestPotions = 8;
+    for (let i = 0; i < numTestPotions; i++) {
+        const angle = (i / numTestPotions) * Math.PI * 2;
+        const radius = 5; // 5 units away from player
+        
+        const potionX = Math.cos(angle) * radius;
+        const potionZ = Math.sin(angle) * radius;
+        
+        const potion = createPotion(potionX, 0, potionZ);
+        // Make potions more visible
+        potion.position.y = hamster.position.y + 2;
+        potion.userData.baseY = hamster.position.y + 2;
+        
+        // Make glow stronger
+        const pointLight = potion.children[4];
+        if (pointLight instanceof THREE.PointLight) {
+            pointLight.intensity = 3;
+            pointLight.distance = 5;
+        }
+        
+        gameState.collectibles.push(potion);
+        scene.add(potion);
+        
+        Logger.game('Spawned test potion', {
+            index: i,
+            position: {
+                x: potion.position.x.toFixed(2),
+                y: potion.position.y.toFixed(2),
+                z: potion.position.z.toFixed(2)
+            }
+        });
+    }
     
     // Spawn initial foxes around the player
     Logger.game('Spawning initial foxes...');
@@ -2329,15 +2366,60 @@ function generateNewWorldChunk() {
     
     const newZ = gameState.scenery.lastGeneratedPosition - chunkSize;
     
-    // Spawn power-ups with 80% chance per chunk (increased from 20%)
+    // Spawn collectibles (coins and potions)
+    const numCollectibles = 10; // Increased from 5 to 10
+    for (let i = 0; i < numCollectibles; i++) {
+        const x = (Math.random() - 0.5) * 10;
+        const z = newZ + (Math.random() - 0.5) * 10;
+        
+        // 50% chance to spawn a potion (increased from 30%)
+        if (Math.random() < 0.5) {
+            const potion = createPotion(x, 0, z);
+            // Make potion more visible by moving it up
+            potion.position.y += 2;
+            potion.userData.baseY += 2;
+            
+            // Make the glow stronger
+            const pointLight = potion.children[4]; // The point light is the last child
+            if (pointLight instanceof THREE.PointLight) {
+                pointLight.intensity = 2;
+                pointLight.distance = 4;
+            }
+            
+            gameState.collectibles.push(potion);
+            scene.add(potion);
+            
+            Logger.game('Spawned potion', {
+                position: {
+                    x: x.toFixed(2),
+                    y: potion.position.y.toFixed(2),
+                    z: z.toFixed(2)
+                },
+                totalCollectibles: gameState.collectibles.length
+            });
+        } else {
+            const coin = createCollectibleSeed(x, 0, z);
+            gameState.collectibles.push(coin);
+            scene.add(coin);
+            
+            Logger.game('Spawned coin', {
+                position: {
+                    x: x.toFixed(2),
+                    y: coin.position.y.toFixed(2),
+                    z: z.toFixed(2)
+                }
+            });
+        }
+    }
+    
+    // Spawn power-ups with 80% chance per chunk
     if (Math.random() < 0.8) {
         const powerUpTypes = [POWERUP_TYPES.BOMB, POWERUP_TYPES.STAR, POWERUP_TYPES.CARROT];
         const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
         
-        // Position power-ups closer to the player's path and lower to the ground
-        const x = (Math.random() - 0.5) * 10; // Reduced from 20 to 10 for easier access
-        const z = newZ + (Math.random() - 0.5) * 10; // Reduced from 20 to 10
-        const y = terrainManager.getHeight(x, z) + 1; // Reduced from +2 to +1
+        const x = (Math.random() - 0.5) * 10;
+        const z = newZ + (Math.random() - 0.5) * 10;
+        const y = terrainManager.getHeight(x, z) + 1;
         
         const powerUpMesh = createPowerUpMesh(randomType);
         powerUpMesh.position.set(x, y, z);
@@ -2361,57 +2443,7 @@ function generateNewWorldChunk() {
     gameState.scenery.lastGeneratedPosition = newZ;
 }
 
-// Inside gameLoop function, update the power-up collection check
-// ... existing code ...
-
-// Check power-up collection
-powerUpManager.powerUpPool.forEach((powerUp, index) => {
-    if (!powerUp.collected && powerUp.mesh && 
-        hamster.position.distanceTo(powerUp.position) < 1.5) {
-        
-        Logger.powerup('Power-up collected', {
-            type: powerUp.type.name,
-            position: powerUp.position,
-            playerPos: hamster.position,
-            remainingPowerUps: powerUpManager.powerUpPool.length - 1
-        });
-        
-        powerUp.collected = true;
-        powerUp.mesh.visible = false;
-        scene.remove(powerUp.mesh);
-        
-        // Activate power-up with game state context
-        powerUp.type.effect(gameState.player, {
-            scene: scene,
-            enemies: gameState.enemies,
-            score: gameState.score,
-            effects: gameState.effects,
-            projectiles: gameState.projectiles,
-            time: gameState.time
-        });
-        
-        // Visual and sound effects
-        createExplosion(powerUp.position, powerUp.type.color);
-        playSound('collect');
-        
-        // Screen effects
-        gameState.effects.screenShake = 0.2;
-        overlayElement.style.backgroundColor = `rgba(${powerUp.type.color.toString(16)}, 0.2)`;
-        setTimeout(() => {
-            overlayElement.style.backgroundColor = 'transparent';
-        }, 100);
-        
-        // Remove from pool
-        powerUpManager.powerUpPool.splice(index, 1);
-        
-        Logger.powerup('Power-up effect activated', {
-            type: powerUp.type.name,
-            remainingPowerUps: powerUpManager.powerUpPool.length
-        });
-    }
-});
-
-// ... existing code ...
+// ... rest of the code ...
 
 // Add game loop function
 function gameLoop(currentTime) {
@@ -2742,3 +2774,64 @@ function gameLoop(currentTime) {
 }
 
 // ... existing code ...
+
+// Create blue potion collectible
+function createPotion(x, y, z) {
+    const potion = new THREE.Group();
+    
+    // Test tube body (cylinder)
+    const tubeGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.8, 8);
+    const tubeMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x88CCFF,
+        transparent: true,
+        opacity: 0.8,
+        metalness: 0.3,
+        roughness: 0.2
+    });
+    const tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
+    potion.add(tube);
+    
+    // Test tube neck (smaller cylinder)
+    const neckGeometry = new THREE.CylinderGeometry(0.1, 0.2, 0.2, 8);
+    const neck = new THREE.Mesh(neckGeometry, tubeMaterial);
+    neck.position.y = 0.5;
+    potion.add(neck);
+    
+    // Cork (brown cylinder)
+    const corkGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.1, 8);
+    const corkMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x8B4513,
+        metalness: 0.1,
+        roughness: 0.8
+    });
+    const cork = new THREE.Mesh(corkGeometry, corkMaterial);
+    cork.position.y = 0.65;
+    potion.add(cork);
+    
+    // Add glow effect
+    const glowGeometry = new THREE.CylinderGeometry(0.3, 0.3, 1.2, 8);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00FFFF,
+        transparent: true,
+        opacity: 0.3
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    potion.add(glow);
+    
+    // Add point light for extra glow
+    const light = new THREE.PointLight(0x00FFFF, 1, 2);
+    light.position.set(0, 0, 0);
+    potion.add(light);
+    
+    // Set position and type
+    const groundHeight = terrainManager.getHeight(x, z);
+    potion.position.set(x, groundHeight + 1, z);
+    potion.userData.type = 'potion';
+    potion.userData.baseY = groundHeight + 1;
+    potion.userData.rotationSpeed = 1 + Math.random();
+    potion.userData.floatOffset = Math.random() * Math.PI * 2;
+    
+    return potion;
+}
+
+// ... rest of the code (without the duplicate generateNewWorldChunk and gameLoop functions) ...
