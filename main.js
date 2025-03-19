@@ -653,7 +653,9 @@ function createCollectibleSeed(x, y, z) {
     const seedMaterial = new THREE.MeshStandardMaterial({ 
         color: 0xFFD700, // Gold color
         metalness: 0.7,
-        roughness: 0.3
+        roughness: 0.3,
+        emissive: 0xFFD700, // Add glow
+        emissiveIntensity: 0.5
     });
     const seedMesh = new THREE.Mesh(seedGeometry, seedMaterial);
     seed.add(seedMesh);
@@ -668,9 +670,14 @@ function createCollectibleSeed(x, y, z) {
     const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     seed.add(glow);
     
-    seed.position.set(x, y, z);
+    // Set position closer to ground
+    const groundHeight = terrainManager.getHeight(x, z);
+    seed.position.set(x, groundHeight + 1, z); // Reduced from +2 to +1
     seed.userData.type = 'collectible';
-    seed.userData.baseY = y;
+    seed.userData.baseY = groundHeight + 1; // Update base Y to match new height
+    seed.userData.rotationSpeed = 1 + Math.random(); // Random rotation speed
+    seed.userData.floatOffset = Math.random() * Math.PI * 2; // Random float offset
+    
     return seed;
 }
 
@@ -1349,7 +1356,7 @@ function resetGame() {
         
         const x = Math.cos(angle) * radius;
         const z = Math.sin(angle) * radius;
-        const y = terrainManager.getHeight(x, z) + 2;
+        const y = terrainManager.getHeight(x, z) + 1; // Reduced from +2 to +1
         
         const powerUpMesh = createPowerUpMesh(randomType);
         powerUpMesh.position.set(x, y, z);
@@ -2327,10 +2334,10 @@ function generateNewWorldChunk() {
         const powerUpTypes = [POWERUP_TYPES.BOMB, POWERUP_TYPES.STAR, POWERUP_TYPES.CARROT];
         const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
         
-        // Position power-ups closer to the player's path
+        // Position power-ups closer to the player's path and lower to the ground
         const x = (Math.random() - 0.5) * 10; // Reduced from 20 to 10 for easier access
         const z = newZ + (Math.random() - 0.5) * 10; // Reduced from 20 to 10
-        const y = terrainManager.getHeight(x, z) + 2;
+        const y = terrainManager.getHeight(x, z) + 1; // Reduced from +2 to +1
         
         const powerUpMesh = createPowerUpMesh(randomType);
         powerUpMesh.position.set(x, y, z);
@@ -2688,6 +2695,43 @@ function gameLoop(currentTime) {
     
     // Update combo system
     updateCombo(gameState.deltaTime);
+
+    // Check collectible seed (coin) collection
+    for (let i = gameState.collectibles.length - 1; i >= 0; i--) {
+        const coin = gameState.collectibles[i];
+        if (hamster.position.distanceTo(coin.position) < 1.5) {
+            // Add score
+            const coinScore = 100;
+            gameState.score += coinScore;
+            
+            // Create collection effect
+            createExplosion(coin.position, 0xFFD700); // Gold color explosion
+            
+            // Show score popup
+            showScorePopup(coinScore, coin.position);
+            
+            // Play collection sound
+            playSound('collect');
+            
+            // Remove coin
+            scene.remove(coin);
+            gameState.collectibles.splice(i, 1);
+            
+            // Increment combo
+            incrementCombo(hamster.position);
+            
+            Logger.game('Coin collected', {
+                score: coinScore,
+                totalScore: gameState.score,
+                position: {
+                    x: coin.position.x.toFixed(2),
+                    y: coin.position.y.toFixed(2),
+                    z: coin.position.z.toFixed(2)
+                },
+                remainingCoins: gameState.collectibles.length
+            });
+        }
+    }
 
     // Only render if not in start state
     if (gameState.state !== 'start') {
