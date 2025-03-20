@@ -1,5 +1,6 @@
 // Import Three.js and required components
-import * as THREE from 'https://unpkg.com/three@0.157.0/build/three.module.js';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Import level system, power-ups, and achievements
 import { LevelManager, LEVELS } from './levels.js';
@@ -219,6 +220,9 @@ const gameState = {
     }
 };
 
+// Initialize the GLTF loader
+const gltfLoader = new GLTFLoader();
+
 // Create seed projectile
 function createSeed() {
     const seedGeometry = new THREE.SphereGeometry(0.2, 8, 8); // Made seed bigger
@@ -263,9 +267,72 @@ function createRocketParticle() {
 
 // Create wombat character with rocket pack
 function createHamster() {
-    // Body
     const body = new THREE.Group();
     
+    // Create a promise to handle model loading
+    const loadModel = new Promise((resolve, reject) => {
+        gltfLoader.load(
+            'assets/models/rocket_wombat.glb',
+            function (gltf) {
+                const model = gltf.scene;
+                
+                // Scale the model to match game proportions
+                model.scale.set(0.5, 0.5, 0.5);
+                
+                // Adjust model orientation if needed
+                model.rotation.y = Math.PI; // Make wombat face forward
+                
+                // Add the model to the body group
+                body.add(model);
+                
+                // Setup exhaust points for rocket effects
+                const exhaustPoints = new THREE.Group();
+                const points = [
+                    [-0.15, -0.3, -0.7],
+                    [0, -0.3, -0.7],
+                    [0.15, -0.3, -0.7]
+                ];
+                
+                points.forEach(point => {
+                    const exhaustPoint = new THREE.Object3D();
+                    exhaustPoint.position.set(...point);
+                    exhaustPoints.add(exhaustPoint);
+                });
+                
+                body.add(exhaustPoints);
+                body.exhaustPoints = exhaustPoints;
+                
+                // Enable shadows
+                model.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                    }
+                });
+                
+                resolve();
+            },
+            function (xhr) {
+                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+            },
+            function (error) {
+                console.error('Error loading model:', error);
+                reject(error);
+            }
+        );
+    });
+    
+    // Handle loading failure
+    loadModel.catch(() => {
+        console.warn('Falling back to geometric wombat');
+        createGeometricWombat(body);
+    });
+    
+    return body;
+}
+
+// Fallback function to create geometric wombat if model loading fails
+function createGeometricWombat(body) {
     // Main body (rounded cube for stocky wombat shape)
     const bodyGeometry = new THREE.BoxGeometry(0.8, 0.6, 1);
     const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Dark brown color
@@ -344,8 +411,6 @@ function createHamster() {
     }
     body.add(exhaustPoints);
     body.exhaustPoints = exhaustPoints;
-
-    return body;
 }
 
 // Create and add hamster to scene
