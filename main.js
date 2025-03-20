@@ -430,12 +430,45 @@ menuContent.innerHTML = `
             ">Sunset Challenge</button>
         </div>
     </div>
-    <div style="
+    
+    <button id="toggleControlsBtn" style="
+        padding: 8px 15px;
+        margin: 10px auto;
+        cursor: pointer;
+        font-size: 14px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 15px;
         color: white;
-        margin-bottom: 20px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-width: 140px;
+    ">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="
+            transition: transform 0.3s ease;
+        ">
+            <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S18.67 9 19.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" 
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            />
+        </svg>
+        <span>Show Controls</span>
+    </button>
+
+    <div id="controlsPanel" style="
+        color: white;
+        margin: 15px 0;
         padding: 15px;
         background: rgba(255, 255, 255, 0.1);
         border-radius: 10px;
+        transition: all 0.3s ease;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
     ">
         <p style="margin-bottom: 8px; font-size: 14px;">Controls:</p>
         <div style="
@@ -453,6 +486,7 @@ menuContent.innerHTML = `
             <span>ESC</span><span>- Pause</span>
         </div>
     </div>
+
     <button id="startButton" style="
         padding: 12px 25px;
         margin: 5px;
@@ -1504,6 +1538,9 @@ function initializeLevelElements() {
     powerUpManager.powerUpPool.length = 0;
 
     const currentLevel = levelManager.getCurrentLevel();
+
+    // Set cloud manager level
+    cloudManager.setLevel(currentLevel.id);
 
     // Set environment
     scene.background = new THREE.Color(currentLevel.environment.skyColor);
@@ -3267,3 +3304,49 @@ function gameLoop(currentTime) {
 }
 
 // ... existing code ...
+
+// Add toggle controls functionality
+const toggleControlsBtn = document.getElementById('toggleControlsBtn');
+const controlsPanel = document.getElementById('controlsPanel');
+let controlsVisible = false;
+
+toggleControlsBtn.addEventListener('click', () => {
+    controlsVisible = !controlsVisible;
+    
+    if (controlsVisible) {
+        controlsPanel.style.maxHeight = '200px';
+        controlsPanel.style.opacity = '1';
+        controlsPanel.style.padding = '15px';
+        controlsPanel.style.margin = '15px 0';
+        toggleControlsBtn.querySelector('span').textContent = 'Hide Controls';
+        toggleControlsBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+        toggleControlsBtn.style.borderColor = '#4CAF50';
+        toggleControlsBtn.querySelector('svg').style.transform = 'rotate(180deg)';
+    } else {
+        controlsPanel.style.maxHeight = '0';
+        controlsPanel.style.opacity = '0';
+        controlsPanel.style.padding = '0 15px';
+        controlsPanel.style.margin = '0';
+        toggleControlsBtn.querySelector('span').textContent = 'Show Controls';
+        toggleControlsBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        toggleControlsBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        toggleControlsBtn.querySelector('svg').style.transform = 'rotate(0deg)';
+    }
+});
+
+// Add hover effect for toggle controls button
+toggleControlsBtn.addEventListener('mouseover', () => {
+    if (!controlsVisible) {
+        toggleControlsBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+        toggleControlsBtn.style.borderColor = '#4CAF50';
+        toggleControlsBtn.querySelector('svg').style.transform = 'rotate(10deg)';
+    }
+});
+
+toggleControlsBtn.addEventListener('mouseout', () => {
+    if (!controlsVisible) {
+        toggleControlsBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        toggleControlsBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        toggleControlsBtn.querySelector('svg').style.transform = 'rotate(0deg)';
+    }
+});
