@@ -1162,7 +1162,7 @@ function initializeLevelElements() {
     // Add obstacles with enhanced visuals and behaviors
     currentLevel.obstacles.forEach(obs => {
         // Create multiple cloud groups at different heights
-        const numClouds = Math.floor(Math.random() * 3) + 2; // 2-4 clouds per obstacle point
+        const numClouds = Math.floor(Math.random() * 4) + 4; // 4-8 clouds per obstacle point (increased from 2-4)
         
         for (let cloudIndex = 0; cloudIndex < numClouds; cloudIndex++) {
             // Create cloud-shaped obstacle using multiple spheres
@@ -1178,7 +1178,7 @@ function initializeLevelElements() {
             });
 
             // Create main cloud body with multiple spheres - more varied sizes
-            const baseSize = obs.w * (0.8 + Math.random() * 0.4); // Random base size
+            const baseSize = obs.w * (0.6 + Math.random() * 0.8); // More size variation
             const sphereSizes = [
                 { radius: baseSize * 0.5, x: 0, y: 0, z: 0 },
                 { radius: baseSize * 0.4, x: baseSize * 0.3, y: -obs.h * 0.1, z: 0 },
@@ -1212,28 +1212,28 @@ function initializeLevelElements() {
             );
             obstacle.add(glowSphere);
 
-            // Position clouds at random higher altitudes
-            const heightOffset = 5 + Math.random() * 10; // Clouds between 5 and 15 units high (previously 10-25)
-            const horizontalOffset = (Math.random() - 0.5) * 40; // Random horizontal spread increased from 20 to 40
+            // Position clouds at random higher altitudes with wider spread
+            const heightOffset = 5 + Math.random() * 15; // Height between 5 and 20 units
+            const horizontalOffset = (Math.random() - 0.5) * 80; // Doubled horizontal spread to 80
             
             obstacle.position.set(
                 obs.x + horizontalOffset,
                 obs.y + obs.h/2 + heightOffset,
-                obs.z + (Math.random() - 0.5) * 40 // Increased Z spread from 20 to 40
+                obs.z + (Math.random() - 0.5) * 80 // Doubled Z spread to 80
             );
             
             obstacle.userData.type = 'obstacle';
             obstacle.userData.boundingBox = new THREE.Box3().setFromObject(obstacle);
             
-            // Add movement properties with varied speeds
+            // Add movement properties with increased speeds
             obstacle.userData.moving = true;
             obstacle.userData.startPos = obstacle.position.clone();
-            obstacle.userData.speed = 0.2 + Math.random() * 0.3; // Random slower speed for more natural movement
+            obstacle.userData.speed = 0.4 + Math.random() * 0.6; // Doubled movement speed (0.4-1.0)
             obstacle.userData.time = Math.random() * Math.PI * 2;
             
             // Add particle effects for moving clouds
             const particleSystem = new THREE.Group();
-            const numParticles = Math.floor(Math.random() * 3) + 3; // 3-5 particles
+            const numParticles = Math.floor(Math.random() * 4) + 4; // 4-8 particles (increased)
             for (let i = 0; i < numParticles; i++) {
                 const particle = new THREE.Mesh(
                     new THREE.SphereGeometry(0.1, 4, 4),
@@ -1253,10 +1253,10 @@ function initializeLevelElements() {
             }
             obstacle.add(particleSystem);
             
-            // Animate cloud particles
+            // Animate cloud particles with faster animation
             function animateParticles() {
                 particleSystem.children.forEach((particle, i) => {
-                    particle.material.opacity = 0.1 + Math.sin(Date.now() * 0.001 + i) * 0.2;
+                    particle.material.opacity = 0.1 + Math.sin(Date.now() * 0.002 + i) * 0.2; // Doubled animation speed
                 });
                 requestAnimationFrame(animateParticles);
             }
