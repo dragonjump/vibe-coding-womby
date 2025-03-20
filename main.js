@@ -378,7 +378,7 @@ menuContent.innerHTML = `
         margin-bottom: 20px;
         font-size: clamp(24px, 5vw, 36px);
         text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-    ">Rocket Hamster Adventure</h1>
+    ">Rocket Womby Adventure</h1>
     <div style="color: white; margin-bottom: 20px;">
         <h2 style="
             font-size: clamp(18px, 4vw, 24px);

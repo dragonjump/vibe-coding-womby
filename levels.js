@@ -167,7 +167,7 @@ export class LevelManager {
     }
 
     loadHighScores() {
-        const savedScores = localStorage.getItem('rocketHamsterHighScores');
+        const savedScores = localStorage.getItem('rocketWombyHighScores');
         if (savedScores) {
             const scores = JSON.parse(savedScores);
             Object.entries(scores).forEach(([level, score]) => {
@@ -181,7 +181,7 @@ export class LevelManager {
         this.highScores.forEach((score, level) => {
             scores[level] = score;
         });
-        localStorage.setItem('rocketHamsterHighScores', JSON.stringify(scores));
+        localStorage.setItem('rocketWombyHighScores', JSON.stringify(scores));
     }
 
     saveHighScore(level, score) {
