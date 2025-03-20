@@ -1141,7 +1141,7 @@ touchControls.innerHTML = `
             border: 2px solid rgba(255,255,255,0.5);
             border-radius: 10px;
             color: white;
-            font-size: 20px;
+            font-size: x-small;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1154,7 +1154,7 @@ touchControls.innerHTML = `
             border: 2px solid rgba(255,255,255,0.5);
             border-radius: 10px;
             color: white;
-            font-size: 20px;
+            font-size: x-small;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1168,7 +1168,7 @@ touchControls.innerHTML = `
             border: 2px solid rgba(255,255,255,0.5);
             border-radius: 10px;
             color: white;
-            font-size: 20px;
+            font-size: x-small;
             display: flex;
             align-items: center;
             justify-content: center;
