@@ -350,68 +350,80 @@ function handleKeyUp(event) {
 // Create start screen
 const startScreen = document.createElement('div');
 startScreen.style.position = 'absolute';
-startScreen.style.top = '50%';
-startScreen.style.left = '50%';
-startScreen.style.transform = 'translate(-50%, -50%)';
-startScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-startScreen.style.padding = '30px';
-startScreen.style.borderRadius = '15px';
-startScreen.style.textAlign = 'center';
+startScreen.style.top = '0';
+startScreen.style.left = '0';
+startScreen.style.width = '100%';
+startScreen.style.height = '100vh';
+startScreen.style.display = 'flex';
+startScreen.style.alignItems = 'center';
+startScreen.style.justifyContent = 'center';
+startScreen.style.overflow = 'hidden';
 startScreen.style.zIndex = '1000';
-startScreen.style.backdropFilter = 'blur(5px)';
-startScreen.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
-startScreen.innerHTML = `
+
+const menuContent = document.createElement('div');
+menuContent.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+menuContent.style.padding = '30px';
+menuContent.style.borderRadius = '15px';
+menuContent.style.textAlign = 'center';
+menuContent.style.backdropFilter = 'blur(5px)';
+menuContent.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
+menuContent.style.maxHeight = '90vh';
+menuContent.style.overflowY = 'auto';
+menuContent.style.width = '90%';
+menuContent.style.maxWidth = '600px';
+menuContent.style.position = 'relative';
+menuContent.innerHTML = `
     <h1 style="
         color: white;
-        margin-bottom: 30px;
-        font-size: 36px;
+        margin-bottom: 20px;
+        font-size: clamp(24px, 5vw, 36px);
         text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
     ">Rocket Hamster Adventure</h1>
     <div style="color: white; margin-bottom: 20px;">
         <h2 style="
-            font-size: 24px;
-            margin-bottom: 20px;
+            font-size: clamp(18px, 4vw, 24px);
+            margin-bottom: 15px;
             color: #FFD700;
             text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
         ">Select Level:</h2>
         <div style="
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            margin: 20px 0;
+            gap: 10px;
+            margin: 15px 0;
         ">
             <button class="level-button" data-level="training" style="
-                padding: 15px;
+                padding: 12px;
                 cursor: pointer;
                 background: rgba(255, 255, 255, 0.1);
                 border: 2px solid rgba(255, 255, 255, 0.3);
                 border-radius: 10px;
                 color: white;
-                font-size: 18px;
+                font-size: 16px;
                 transition: all 0.3s ease;
                 position: relative;
                 overflow: hidden;
             ">Training Grounds</button>
             <button class="level-button" data-level="cloud" style="
-                padding: 15px;
+                padding: 12px;
                 cursor: pointer;
                 background: rgba(255, 255, 255, 0.1);
                 border: 2px solid rgba(255, 255, 255, 0.3);
                 border-radius: 10px;
                 color: white;
-                font-size: 18px;
+                font-size: 16px;
                 transition: all 0.3s ease;
                 position: relative;
                 overflow: hidden;
             ">Cloud City</button>
             <button class="level-button" data-level="sunset" style="
-                padding: 15px;
+                padding: 12px;
                 cursor: pointer;
                 background: rgba(255, 255, 255, 0.1);
                 border: 2px solid rgba(255, 255, 255, 0.3);
                 border-radius: 10px;
                 color: white;
-                font-size: 18px;
+                font-size: 16px;
                 transition: all 0.3s ease;
                 position: relative;
                 overflow: hidden;
@@ -420,18 +432,19 @@ startScreen.innerHTML = `
     </div>
     <div style="
         color: white;
-        margin-bottom: 30px;
-        padding: 20px;
+        margin-bottom: 20px;
+        padding: 15px;
         background: rgba(255, 255, 255, 0.1);
         border-radius: 10px;
     ">
-        <p style="margin-bottom: 10px; font-size: 16px;">Controls:</p>
+        <p style="margin-bottom: 8px; font-size: 14px;">Controls:</p>
         <div style="
             display: grid;
             grid-template-columns: auto auto;
-            gap: 10px;
+            gap: 8px;
             justify-content: center;
             text-align: left;
+            font-size: 14px;
         ">
             <span>WASD</span><span>- Move</span>
             <span>SPACE</span><span>- Jump</span>
@@ -441,10 +454,10 @@ startScreen.innerHTML = `
         </div>
     </div>
     <button id="startButton" style="
-        padding: 15px 30px;
+        padding: 12px 25px;
         margin: 5px;
         cursor: pointer;
-        font-size: 20px;
+        font-size: 18px;
         background: linear-gradient(45deg, #4CAF50, #45a049);
         border: none;
         border-radius: 25px;
@@ -455,6 +468,7 @@ startScreen.innerHTML = `
         box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
     ">Start Game</button>
 `;
+startScreen.appendChild(menuContent);
 document.body.appendChild(startScreen);
 
 // Add hover effects for level buttons
