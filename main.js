@@ -1161,26 +1161,48 @@ function initializeLevelElements() {
 
     // Add obstacles with enhanced visuals and behaviors
     currentLevel.obstacles.forEach(obs => {
-        // Create obstacle mesh with enhanced materials
-        const geometry = new THREE.BoxGeometry(obs.w, obs.h, obs.d);
-        const material = new THREE.MeshStandardMaterial({
-            color: 0xFF4444,
-            metalness: 0.6,
-            roughness: 0.4,
-            emissive: 0xFF0000,
-            emissiveIntensity: 0.2
-        });
-        const obstacle = new THREE.Mesh(geometry, material);
+        // Create cloud-shaped obstacle using multiple spheres
+        const obstacle = new THREE.Group();
         
-        // Add glow effect
-        const glowGeometry = new THREE.BoxGeometry(obs.w + 0.2, obs.h + 0.2, obs.d + 0.2);
-        const glowMaterial = new THREE.MeshBasicMaterial({
-            color: 0xFF6666,
+        // Main cloud body - using multiple overlapping spheres for fluffy appearance
+        const cloudMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            metalness: 0.1,
+            roughness: 0.8,
             transparent: true,
-            opacity: 0.3
+            opacity: 0.9
         });
-        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-        obstacle.add(glow);
+
+        // Create main cloud body with multiple spheres
+        const sphereSizes = [
+            { radius: obs.w * 0.5, x: 0, y: 0, z: 0 },
+            { radius: obs.w * 0.4, x: obs.w * 0.3, y: -obs.h * 0.1, z: 0 },
+            { radius: obs.w * 0.4, x: -obs.w * 0.3, y: -obs.h * 0.1, z: 0 },
+            { radius: obs.w * 0.3, x: 0, y: obs.h * 0.2, z: obs.d * 0.2 },
+            { radius: obs.w * 0.3, x: 0, y: obs.h * 0.2, z: -obs.d * 0.2 }
+        ];
+
+        sphereSizes.forEach(sphere => {
+            const cloudPart = new THREE.Mesh(
+                new THREE.SphereGeometry(sphere.radius, 8, 8),
+                cloudMaterial
+            );
+            cloudPart.position.set(sphere.x, sphere.y, sphere.z);
+            obstacle.add(cloudPart);
+        });
+
+        // Add subtle glow effect
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.2
+        });
+
+        const glowSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(obs.w * 0.7, 8, 8),
+            glowMaterial
+        );
+        obstacle.add(glowSphere);
 
         // Position and setup
         obstacle.position.set(obs.x, obs.y + obs.h/2, obs.z);
@@ -1194,15 +1216,15 @@ function initializeLevelElements() {
             obstacle.userData.speed = obs.speed || 1;
             obstacle.userData.time = Math.random() * Math.PI * 2; // Random start phase
             
-            // Add warning particles
+            // Add particle effects for moving clouds
             const particleSystem = new THREE.Group();
             for (let i = 0; i < 5; i++) {
                 const particle = new THREE.Mesh(
                     new THREE.SphereGeometry(0.1, 4, 4),
                     new THREE.MeshBasicMaterial({
-                        color: 0xFF0000,
+                        color: 0xffffff,
                         transparent: true,
-                        opacity: 0.7
+                        opacity: 0.4
                     })
                 );
                 const angle = (i / 5) * Math.PI * 2;
@@ -1215,10 +1237,10 @@ function initializeLevelElements() {
             }
             obstacle.add(particleSystem);
             
-            // Animate warning particles
+            // Animate cloud particles
             function animateParticles() {
                 particleSystem.children.forEach((particle, i) => {
-                    particle.material.opacity = 0.3 + Math.sin(Date.now() * 0.005 + i) * 0.4;
+                    particle.material.opacity = 0.2 + Math.sin(Date.now() * 0.002 + i) * 0.2;
                 });
                 requestAnimationFrame(animateParticles);
             }
