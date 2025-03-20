@@ -669,6 +669,37 @@ function createCollectibleSeed(x, y, z) {
     });
     const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     seed.add(glow);
+
+    // Add blue triangle with 30% chance
+    if (Math.random() < 0.3) {
+        const triangleGeometry = new THREE.BufferGeometry();
+        const vertices = new Float32Array([
+            0, 0.3, 0,    // top
+            -0.2, -0.1, 0, // bottom left
+            0.2, -0.1, 0   // bottom right
+        ]);
+        triangleGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        const triangleMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x0000FF,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.7 // Make it slightly transparent
+        });
+        const triangle = new THREE.Mesh(triangleGeometry, triangleMaterial);
+        
+        // Position triangle farther from the coin with random offset
+        const angle = Math.random() * Math.PI * 2; // Random angle around the coin
+        const distance = 0.8 + Math.random() * 0.4; // Random distance between 0.8 and 1.2 units
+        triangle.position.set(
+            Math.cos(angle) * distance,
+            0,
+            Math.sin(angle) * distance
+        );
+        triangle.rotation.y = Math.random() * Math.PI * 2; // Random rotation around Y axis
+        triangle.userData.type = 'healingTriangle'; // Add type for identification
+        triangle.userData.isCollected = false; // Track if it's been collected
+        seed.add(triangle);
+    }
     
     // Set position closer to ground
     const groundHeight = terrainManager.getHeight(x, z);
@@ -2699,6 +2730,8 @@ function gameLoop(currentTime) {
     // Check collectible seed (coin) collection
     for (let i = gameState.collectibles.length - 1; i >= 0; i--) {
         const coin = gameState.collectibles[i];
+        
+        // Check for coin collection
         if (hamster.position.distanceTo(coin.position) < 1.5) {
             // Add score
             const coinScore = 100;
@@ -2712,6 +2745,24 @@ function gameLoop(currentTime) {
             
             // Play collection sound
             playSound('collect');
+            
+            // Check for healing triangle and apply healing if found
+            coin.children.forEach(child => {
+                if (child.userData.type === 'healingTriangle' && !child.userData.isCollected) {
+                    // Heal 20% of max health
+                    const healAmount = gameState.player.maxHealth * 0.2;
+                    gameState.player.health = Math.min(gameState.player.maxHealth, gameState.player.health + healAmount);
+                    
+                    // Create healing effect
+                    createExplosion(child.position.clone().add(coin.position), 0x0000FF);
+                    
+                    // Show healing popup
+                    showScorePopup(`+${Math.round(healAmount)} HP`, coin.position);
+                    
+                    // Mark as collected
+                    child.userData.isCollected = true;
+                }
+            });
             
             // Remove coin
             scene.remove(coin);
