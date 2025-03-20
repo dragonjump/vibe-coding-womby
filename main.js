@@ -1528,7 +1528,7 @@ canvas.addEventListener('touchstart', (e) => {
 });
 
 // Modify initializeLevelElements to start appropriate music
-function initializeLevelElements() {
+function initializeLevelElements(level) {
     // Clear existing elements
     gameState.collectibles.forEach(c => scene.remove(c));
     gameState.collectibles.length = 0;
@@ -1537,16 +1537,14 @@ function initializeLevelElements() {
     powerUpManager.powerUpPool.forEach(p => p.mesh && scene.remove(p.mesh));
     powerUpManager.powerUpPool.length = 0;
 
-    const currentLevel = levelManager.getCurrentLevel();
-
     // Set cloud manager level
-    cloudManager.setLevel(currentLevel.id);
+    cloudManager.setLevel(level.id);
 
     // Set environment
-    scene.background = new THREE.Color(currentLevel.environment.skyColor);
-    terrainManager.setGroundColor(currentLevel.environment.groundColor);
-    if (currentLevel.environment.fogDensity > 0) {
-        scene.fog = new THREE.FogExp2(currentLevel.environment.skyColor, currentLevel.environment.fogDensity);
+    scene.background = new THREE.Color(level.environment.skyColor);
+    terrainManager.setGroundColor(level.environment.groundColor);
+    if (level.environment.fogDensity > 0) {
+        scene.fog = new THREE.FogExp2(level.environment.skyColor, level.environment.fogDensity);
     } else {
         scene.fog = null;
     }
@@ -1560,7 +1558,7 @@ function initializeLevelElements() {
     });
 
     // Add power-ups
-    currentLevel.powerUps.forEach(powerUp => {
+    level.powerUps.forEach(powerUp => {
         const type = POWERUP_TYPES[powerUp.type];
         if (type) {
             const mesh = createPowerUpMesh(type);
@@ -1576,7 +1574,7 @@ function initializeLevelElements() {
     });
 
     // Add obstacles with enhanced visuals and behaviors
-    currentLevel.obstacles.forEach(obs => {
+    level.obstacles.forEach(obs => {
         // Create multiple cloud groups at different heights
         const numClouds = Math.floor(Math.random() * 4) + 4; // 4-8 clouds per obstacle point (increased from 2-4)
         
@@ -1690,11 +1688,50 @@ function initializeLevelElements() {
         2: MUSIC_TRACKS.CLOUD_CITY,
         3: MUSIC_TRACKS.SUNSET
     };
-    playBackgroundMusic(musicTracks[currentLevel.id]);
+    playBackgroundMusic(musicTracks[level.id]);
 
     // Reset player position
     hamster.position.set(0, 2, 0);
     gameState.player.velocity.set(0, 0, 0);
+
+    if (level.id === 3) { // Sunset Challenge
+        // Create setting sun
+        const sun = createSettingSun(
+            new THREE.Vector3(
+                level.environment.sunPosition.x,
+                level.environment.sunPosition.y,
+                level.environment.sunPosition.z
+            ),
+            level.environment.sunColor
+        );
+        scene.add(sun);
+        
+        // Add ambient light
+        const ambientLight = new THREE.AmbientLight(level.environment.ambientLight, 0.5);
+        scene.add(ambientLight);
+        
+        // Add fog for depth
+        scene.fog = new THREE.FogExp2(level.environment.skyColor, level.environment.fogDensity);
+        
+        // Create mountains in the background
+        for (let i = 0; i < level.environment.mountainCount; i++) {
+            const angle = (i / level.environment.mountainCount) * Math.PI * 2;
+            const radius = level.environment.mountainRadius;
+            const position = new THREE.Vector3(
+                Math.cos(angle) * radius,
+                0,
+                Math.sin(angle) * radius
+            );
+            
+            const height = THREE.MathUtils.randFloat(
+                level.environment.mountainHeightRange.min,
+                level.environment.mountainHeightRange.max
+            );
+            
+            const mountain = createMountain(position, height, level.environment.mountainColor);
+            scene.add(mountain);
+        }
+    }
 }
 
 // Update game loop to handle moving obstacles
@@ -1919,12 +1956,12 @@ function resetGame() {
     }
     
     // Initialize level elements
-    initializeLevelElements();
+    initializeLevelElements(levelManager.getCurrentLevel());
     achievementManager.startLevel();
 }
 
 // Initialize first level
-initializeLevelElements();
+initializeLevelElements(levelManager.getCurrentLevel());
 
 // Start game loop
 requestAnimationFrame(gameLoop);
@@ -2298,15 +2335,135 @@ function createExplosion(position, color = 0xff4444) {
 }
 
 // Create mountain for scenery
-function createMountain(x, z, height) {
-    const geometry = new THREE.ConeGeometry(height/2, height, 4);
-    const material = new THREE.MeshStandardMaterial({
-        color: 0x808080,
-        roughness: 0.8
+function createMountain(position, height, color) {
+    const segments = 4;
+    const geometry = new THREE.ConeGeometry(height * 0.6, height, segments);
+    const material = new THREE.MeshPhongMaterial({ 
+        color: color,
+        shininess: 0,
+        flatShading: true
     });
+    
     const mountain = new THREE.Mesh(geometry, material);
-    mountain.position.set(x, height/2, z);
+    mountain.position.copy(position);
+    mountain.castShadow = true;
+    mountain.receiveShadow = true;
+
+    // Add snow cap if mountain is tall enough
+    if (height > 25) {
+        const snowGeometry = new THREE.ConeGeometry(height * 0.2, height * 0.2, segments);
+        const snowMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xffffff,
+            shininess: 10
+        });
+        const snowCap = new THREE.Mesh(snowGeometry, snowMaterial);
+        snowCap.position.y = height * 0.4;
+        snowCap.castShadow = true;
+        mountain.add(snowCap);
+    }
+
     return mountain;
+}
+
+function createSettingSun(position, color) {
+    const sunGroup = new THREE.Group();
+    
+    // Create the sun mesh with larger size
+    const sunGeometry = new THREE.SphereGeometry(15, 32, 32);
+    const sunMaterial = new THREE.MeshBasicMaterial({ 
+        color: color,
+        transparent: true,
+        opacity: 0.9
+    });
+    const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    
+    // Create multiple layers of glow
+    const glowColors = [
+        { size: 17, opacity: 0.4 },
+        { size: 20, opacity: 0.3 },
+        { size: 25, opacity: 0.1 }
+    ];
+    
+    glowColors.forEach(({ size, opacity }) => {
+        const glowGeometry = new THREE.SphereGeometry(size, 32, 32);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: opacity,
+            side: THREE.BackSide
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        sunGroup.add(glow);
+    });
+    
+    // Create directional light for sun
+    const sunLight = new THREE.DirectionalLight(color, 1.5);
+    sunLight.position.copy(position);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 500;
+    sunLight.shadow.camera.left = -100;
+    sunLight.shadow.camera.right = 100;
+    sunLight.shadow.camera.top = 100;
+    sunLight.shadow.camera.bottom = -100;
+    
+    // Add a subtle volumetric light effect using particles
+    const particleCount = 50;
+    const particleGeometry = new THREE.BufferGeometry();
+    const particlePositions = [];
+    const particleMaterial = new THREE.PointsMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.2,
+        size: 2,
+        blending: THREE.AdditiveBlending
+    });
+    
+    for (let i = 0; i < particleCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI;
+        const radius = 15 + Math.random() * 10;
+        
+        particlePositions.push(
+            Math.sin(phi) * Math.cos(theta) * radius,
+            Math.sin(phi) * Math.sin(theta) * radius,
+            Math.cos(phi) * radius
+        );
+    }
+    
+    particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute(particlePositions, 3));
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    
+    sunGroup.add(sun);
+    sunGroup.add(sunLight);
+    sunGroup.add(particles);
+    sunGroup.position.copy(position);
+    
+    // Add animation to the glow and particles
+    const animate = () => {
+        particles.rotation.y += 0.001;
+        sunGroup.children.forEach(child => {
+            if (child.material && child.material.opacity) {
+                child.material.opacity = child.material.opacity * 0.99 + 
+                    child.material._baseOpacity * 0.01 + 
+                    Math.sin(Date.now() * 0.001) * 0.02;
+            }
+        });
+        requestAnimationFrame(animate);
+    };
+    
+    // Store base opacity values for animation
+    sunGroup.children.forEach(child => {
+        if (child.material && child.material.opacity) {
+            child.material._baseOpacity = child.material.opacity;
+        }
+    });
+    
+    animate();
+    
+    return sunGroup;
 }
 
 // Create tree for scenery
