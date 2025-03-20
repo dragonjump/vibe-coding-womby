@@ -1936,36 +1936,49 @@ function resetGame() {
     cloudManager.dispose();
     terrainManager.reset();
     
-    // Spawn initial foxes around the player
-    Logger.game('Spawning initial foxes...');
-    const numInitialFoxes = 5;
-    for (let i = 0; i < numInitialFoxes; i++) {
-        const fox = createFox();
+    // Spawn initial enemies around the player
+    Logger.game('Spawning initial enemies...');
+    const numInitialEnemies = 5;
+    for (let i = 0; i < numInitialEnemies; i++) {
+        let enemy;
+        const enemyType = Math.random();
         
-        // Position foxes in a circle around the player
-        const angle = (i / numInitialFoxes) * Math.PI * 2;
+        // 40% chance of Fox, 30% chance of T-Rex, 30% chance of Triceratops
+        if (enemyType < 0.4) {
+            enemy = createFox();
+            Logger.game('Spawning Fox');
+        } else if (enemyType < 0.7) {
+            enemy = createTRex();
+            Logger.game('Spawning T-Rex');
+        } else {
+            enemy = createTriceratops();
+            Logger.game('Spawning Triceratops');
+        }
+        
+        // Position enemies in a circle around the player
+        const angle = (i / numInitialEnemies) * Math.PI * 2;
         const radius = 20; // Distance from player
         
-        const foxX = Math.cos(angle) * radius;
-        const foxZ = Math.sin(angle) * radius;
+        const enemyX = Math.cos(angle) * radius;
+        const enemyZ = Math.sin(angle) * radius;
         
-        fox.position.set(foxX, 0, foxZ);
+        enemy.position.set(enemyX, 0, enemyZ);
         
-        // Ensure fox is above ground
-        const groundHeight = terrainManager.getHeight(fox.position.x, fox.position.z);
-        fox.position.y = groundHeight + 1;
+        // Ensure enemy is above ground
+        const groundHeight = terrainManager.getHeight(enemy.position.x, enemy.position.z);
+        enemy.position.y = groundHeight + 1;
         
-        Logger.fox('Spawned initial fox', {
-            index: i,
+        Logger.game('Spawned enemy', {
+            type: enemy.userData.type,
             position: {
-                x: fox.position.x.toFixed(2),
-                y: fox.position.y.toFixed(2),
-                z: fox.position.z.toFixed(2)
+                x: enemy.position.x.toFixed(2),
+                y: enemy.position.y.toFixed(2),
+                z: enemy.position.z.toFixed(2)
             }
         });
         
-        scene.add(fox);
-        gameState.enemies.push(fox);
+        scene.add(enemy);
+        gameState.enemies.push(enemy);
     }
     
     // Spawn initial power-ups around the player
@@ -2828,11 +2841,11 @@ function createFox() {
     fox.userData.type = 'fox';
     fox.userData.health = 1; // One hit to destroy
     fox.userData.shootTimer = 0;
-    fox.userData.shootInterval = 2; // Shoot less frequently
-    fox.userData.moveSpeed = 6; // Move slower
+    fox.userData.shootInterval = 1.5; // Reduced from 2 (25% faster shooting)
+    fox.userData.moveSpeed = 7.5; // Increased from 6 (25% faster movement)
     fox.userData.state = 'chase';
-    fox.userData.chaseDistance = 40; // Stay further away
-    fox.userData.retreatDistance = 15; // Retreat sooner
+    fox.userData.chaseDistance = 50; // Increased from 40 (25% more aggressive chase range)
+    fox.userData.retreatDistance = 12; // Reduced from 15 (stays closer before retreating)
     
     console.log('Fox created successfully:', {
         type: fox.userData.type,
@@ -3188,8 +3201,9 @@ function gameLoop(currentTime) {
     // Update explosions
     updateExplosions();
 
-    // Update foxes
+    // Update enemies
     updateFoxes();
+    updateDinosaurs();
 
     // Update hamster position based on input
     const moveSpeed = gameState.player.speed * gameState.deltaTime;
@@ -3578,5 +3592,301 @@ function initScene() {
     if (currentLevel.id === 3) {
         renderer.toneMappingExposure = 2.0; // Higher exposure for level 3
         scene.fog.density = 0.008; // Reduced fog density
+    }
+}
+
+// Create T-Rex enemy
+function createTRex() {
+    console.log('Creating new T-Rex...');
+    const trex = new THREE.Group();
+    
+    // Body - Larger than fox
+    const bodyGeometry = new THREE.BoxGeometry(2.5, 2, 3);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x556B2F,  // Dark olive green
+        roughness: 0.8,
+        metalness: 0.2
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    trex.add(body);
+    
+    // Head - Distinctive T-Rex shape
+    const headGeometry = new THREE.BoxGeometry(1.2, 1.5, 2);
+    const head = new THREE.Mesh(headGeometry, bodyMaterial);
+    head.position.set(0, 1, 1.5);
+    trex.add(head);
+    
+    // Jaw
+    const jawGeometry = new THREE.BoxGeometry(1, 0.5, 1.5);
+    const jaw = new THREE.Mesh(jawGeometry, bodyMaterial);
+    jaw.position.set(0, 0.2, 2);
+    trex.add(jaw);
+    
+    // Tiny arms
+    const armGeometry = new THREE.BoxGeometry(0.4, 0.8, 0.4);
+    const leftArm = new THREE.Mesh(armGeometry, bodyMaterial);
+    leftArm.position.set(1, 0.5, 0.5);
+    trex.add(leftArm);
+    
+    const rightArm = new THREE.Mesh(armGeometry, bodyMaterial);
+    rightArm.position.set(-1, 0.5, 0.5);
+    trex.add(rightArm);
+    
+    // Legs
+    const legGeometry = new THREE.BoxGeometry(0.6, 2, 0.6);
+    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    leftLeg.position.set(0.8, -1, -0.5);
+    trex.add(leftLeg);
+    
+    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    rightLeg.position.set(-0.8, -1, -0.5);
+    trex.add(rightLeg);
+    
+    // Tail
+    const tailGeometry = new THREE.BoxGeometry(0.8, 0.8, 2);
+    const tail = new THREE.Mesh(tailGeometry, bodyMaterial);
+    tail.position.set(0, 0.5, -2);
+    trex.add(tail);
+    
+    // T-Rex properties - stronger and more aggressive than fox
+    trex.userData.type = 'trex';
+    trex.userData.health = 3; // Takes 3 hits to destroy
+    trex.userData.shootTimer = 0;
+    trex.userData.shootInterval = 2.5; // Slower attacks but more powerful
+    trex.userData.moveSpeed = 9; // Faster than fox
+    trex.userData.state = 'chase';
+    trex.userData.chaseDistance = 60; // Longer chase range
+    trex.userData.retreatDistance = 5; // Rarely retreats
+    trex.userData.damage = 25; // High damage
+    
+    return trex;
+}
+
+// Create Triceratops enemy
+function createTriceratops() {
+    console.log('Creating new Triceratops...');
+    const tric = new THREE.Group();
+    
+    // Body - Wide and sturdy
+    const bodyGeometry = new THREE.BoxGeometry(3, 2, 4);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x8B4513,  // Saddle brown
+        roughness: 0.7,
+        metalness: 0.3
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    tric.add(body);
+    
+    // Head with frill
+    const headGeometry = new THREE.BoxGeometry(2.5, 2, 1.5);
+    const head = new THREE.Mesh(headGeometry, bodyMaterial);
+    head.position.set(0, 0.5, 2);
+    tric.add(head);
+    
+    // Horns
+    const hornGeometry = new THREE.ConeGeometry(0.2, 1.5, 4);
+    const hornMaterial = new THREE.MeshStandardMaterial({
+        color: 0xD2B48C,  // Tan
+        roughness: 0.6,
+        metalness: 0.4
+    });
+    
+    // Front horn
+    const frontHorn = new THREE.Mesh(hornGeometry, hornMaterial);
+    frontHorn.rotation.x = -Math.PI / 4;
+    frontHorn.position.set(0, 1, 3);
+    tric.add(frontHorn);
+    
+    // Side horns
+    const leftHorn = new THREE.Mesh(hornGeometry, hornMaterial);
+    leftHorn.rotation.x = -Math.PI / 6;
+    leftHorn.rotation.z = -Math.PI / 6;
+    leftHorn.position.set(1, 1, 2.5);
+    tric.add(leftHorn);
+    
+    const rightHorn = new THREE.Mesh(hornGeometry, hornMaterial);
+    rightHorn.rotation.x = -Math.PI / 6;
+    rightHorn.rotation.z = Math.PI / 6;
+    rightHorn.position.set(-1, 1, 2.5);
+    tric.add(rightHorn);
+    
+    // Legs
+    const legGeometry = new THREE.BoxGeometry(0.8, 2, 0.8);
+    const legs = [
+        { x: 1.2, z: 1 },    // Front right
+        { x: -1.2, z: 1 },   // Front left
+        { x: 1.2, z: -1 },   // Back right
+        { x: -1.2, z: -1 }   // Back left
+    ];
+    
+    legs.forEach(pos => {
+        const leg = new THREE.Mesh(legGeometry, bodyMaterial);
+        leg.position.set(pos.x, -1, pos.z);
+        tric.add(leg);
+    });
+    
+    // Triceratops properties - defensive tank
+    tric.userData.type = 'triceratops';
+    tric.userData.health = 5; // Very tough
+    tric.userData.shootTimer = 0;
+    tric.userData.shootInterval = 3; // Slow attacks
+    tric.userData.moveSpeed = 5; // Slower but steady
+    tric.userData.state = 'chase';
+    tric.userData.chaseDistance = 40; // Medium range
+    tric.userData.retreatDistance = 8;
+    tric.userData.damage = 15; // Medium damage
+    tric.userData.chargeSpeed = 15; // Special charge attack speed
+    tric.userData.isCharging = false;
+    
+    return tric;
+}
+
+// Create dinosaur projectile
+function createDinoProjectile(position, direction, type) {
+    const geometry = new THREE.SphereGeometry(0.3, 8, 8);
+    const material = new THREE.MeshStandardMaterial({
+        color: type === 'trex' ? 0x556B2F : 0x8B4513,
+        emissive: type === 'trex' ? 0x556B2F : 0x8B4513,
+        emissiveIntensity: 0.5
+    });
+    const projectile = new THREE.Mesh(geometry, material);
+    projectile.position.copy(position);
+    
+    // Add trail effect
+    const trail = new THREE.Mesh(
+        new THREE.SphereGeometry(0.15, 8, 8),
+        new THREE.MeshBasicMaterial({
+            color: type === 'trex' ? 0x556B2F : 0x8B4513,
+            transparent: true,
+            opacity: 0.6
+        })
+    );
+    projectile.add(trail);
+    
+    // Different velocities for different dinos
+    const speed = type === 'trex' ? 35 : 25;
+    projectile.velocity = direction.normalize().multiplyScalar(speed);
+    projectile.userData.type = type + 'Projectile';
+    projectile.userData.damage = type === 'trex' ? 25 : 15;
+    
+    return projectile;
+}
+
+// Update dinosaurs function
+function updateDinosaurs() {
+    for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+        const dino = gameState.enemies[i];
+        if (dino.userData.type !== 'trex' && dino.userData.type !== 'triceratops') {
+            continue;
+        }
+        
+        // Update shoot timer
+        dino.userData.shootTimer += gameState.deltaTime;
+        
+        // Calculate distance to player
+        const distanceToPlayer = dino.position.distanceTo(hamster.position);
+        
+        // Handle seed collisions
+        for (let j = gameState.projectiles.length - 1; j >= 0; j--) {
+            const projectile = gameState.projectiles[j];
+            if (!projectile.lifetime && !projectile.userData.type) {
+                if (projectile.position.distanceTo(dino.position) < 2) {
+                    // Remove the projectile
+                    scene.remove(projectile);
+                    gameState.projectiles.splice(j, 1);
+                    
+                    // Damage the dinosaur
+                    dino.userData.health--;
+                    
+                    // Visual feedback
+                    createExplosion(projectile.position, 
+                        dino.userData.type === 'trex' ? 0x556B2F : 0x8B4513);
+                    
+                    // If dinosaur is defeated
+                    if (dino.userData.health <= 0) {
+                        scene.remove(dino);
+                        gameState.enemies.splice(i, 1);
+                        
+                        // Add score (more points than fox)
+                        const score = dino.userData.type === 'trex' ? 500 : 400;
+                        gameState.score += score;
+                        showScorePopup(score, dino.position);
+                        
+                        playSound('hit');
+                        gameState.effects.screenShake = 0.4;
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // Special behavior for Triceratops charge attack
+        if (dino.userData.type === 'triceratops') {
+            if (distanceToPlayer < 20 && !dino.userData.isCharging && Math.random() < 0.01) {
+                dino.userData.isCharging = true;
+                dino.userData.chargeTarget = hamster.position.clone();
+                setTimeout(() => { dino.userData.isCharging = false; }, 2000);
+            }
+            
+            if (dino.userData.isCharging) {
+                const chargeDir = new THREE.Vector3()
+                    .subVectors(dino.userData.chargeTarget, dino.position)
+                    .normalize();
+                dino.position.add(chargeDir.multiplyScalar(dino.userData.chargeSpeed * gameState.deltaTime));
+                
+                // Check for charge hit
+                if (dino.position.distanceTo(hamster.position) < 2) {
+                    takeDamage(30);
+                    dino.userData.isCharging = false;
+                }
+                continue;
+            }
+        }
+        
+        // Update state based on distance
+        if (distanceToPlayer < dino.userData.retreatDistance) {
+            dino.userData.state = 'retreat';
+        } else if (distanceToPlayer > dino.userData.chaseDistance) {
+            dino.userData.state = 'chase';
+        }
+        
+        // Move based on state
+        const direction = new THREE.Vector3()
+            .subVectors(hamster.position, dino.position)
+            .normalize();
+        
+        if (dino.userData.state === 'retreat') {
+            dino.position.sub(direction.multiplyScalar(dino.userData.moveSpeed * gameState.deltaTime));
+        } else {
+            dino.position.add(direction.multiplyScalar(dino.userData.moveSpeed * gameState.deltaTime));
+        }
+        
+        // Keep dinosaur at proper height
+        dino.position.y = terrainManager.getHeight(dino.position.x, dino.position.z) + 1;
+        
+        // Rotate to face player
+        dino.lookAt(hamster.position);
+        
+        // Shooting logic
+        if (dino.userData.shootTimer >= dino.userData.shootInterval) {
+            dino.userData.shootTimer = 0;
+            
+            const projectilePosition = dino.position.clone();
+            projectilePosition.y += 1;
+            
+            const projectileDirection = new THREE.Vector3()
+                .subVectors(hamster.position, projectilePosition)
+                .normalize();
+            
+            const projectile = createDinoProjectile(
+                projectilePosition, 
+                projectileDirection,
+                dino.userData.type
+            );
+            scene.add(projectile);
+            gameState.projectiles.push(projectile);
+            
+            playSound('shoot');
+        }
     }
 }
