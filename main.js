@@ -648,6 +648,22 @@ document.querySelectorAll('.level-button').forEach(button => {
     });
 });
 
+// Auto-select first level on page load
+window.addEventListener('load', () => {
+    const firstLevelButton = document.querySelector('.level-button');
+    if (firstLevelButton) {
+        // Trigger click on first level button
+        firstLevelButton.click();
+        
+        // Set visual styles
+        firstLevelButton.classList.add('selected');
+        firstLevelButton.style.transform = 'scale(1.05)';
+        firstLevelButton.style.background = 'rgba(76, 175, 80, 0.3)';
+        firstLevelButton.style.borderColor = '#4CAF50';
+        firstLevelButton.style.boxShadow = '0 0 15px rgba(76, 175, 80, 0.5)';
+    }
+});
+
 // Update the start button handler
 document.getElementById('startButton').addEventListener('click', () => {
     // Initialize audio system
@@ -1943,16 +1959,19 @@ function resetGame() {
         let enemy;
         const enemyType = Math.random();
         
-        // 40% chance of Fox, 30% chance of T-Rex, 30% chance of Triceratops
-        if (enemyType < 0.4) {
+        // 30% chance of Fox, 25% chance of T-Rex, 25% chance of Triceratops, 20% chance of Pterosaur
+        if (enemyType < 0.3) {
             enemy = createFox();
             Logger.game('Spawning Fox');
-        } else if (enemyType < 0.7) {
+        } else if (enemyType < 0.55) {
             enemy = createTRex();
             Logger.game('Spawning T-Rex');
-        } else {
+        } else if (enemyType < 0.8) {
             enemy = createTriceratops();
             Logger.game('Spawning Triceratops');
+        } else {
+            enemy = createPterosaur();
+            Logger.game('Spawning Pterosaur');
         }
         
         // Position enemies in a circle around the player
@@ -1962,11 +1981,15 @@ function resetGame() {
         const enemyX = Math.cos(angle) * radius;
         const enemyZ = Math.sin(angle) * radius;
         
-        enemy.position.set(enemyX, 0, enemyZ);
-        
-        // Ensure enemy is above ground
-        const groundHeight = terrainManager.getHeight(enemy.position.x, enemy.position.z);
-        enemy.position.y = groundHeight + 1;
+        // Set position based on enemy type
+        if (enemy.userData.type === 'pterosaur') {
+            enemy.position.set(enemyX, enemy.userData.height, enemyZ);
+        } else {
+            enemy.position.set(enemyX, 0, enemyZ);
+            // Ensure ground enemies are above terrain
+            const groundHeight = terrainManager.getHeight(enemy.position.x, enemy.position.z);
+            enemy.position.y = groundHeight + 1;
+        }
         
         Logger.game('Spawned enemy', {
             type: enemy.userData.type,
@@ -3204,6 +3227,7 @@ function gameLoop(currentTime) {
     // Update enemies
     updateFoxes();
     updateDinosaurs();
+    updatePterosaurs();
 
     // Update hamster position based on input
     const moveSpeed = gameState.player.speed * gameState.deltaTime;
@@ -3885,6 +3909,236 @@ function updateDinosaurs() {
             );
             scene.add(projectile);
             gameState.projectiles.push(projectile);
+            
+            playSound('shoot');
+        }
+    }
+}
+
+// Create Pterosaur enemy
+function createPterosaur() {
+    console.log('Creating new pterosaur...');
+    const pterosaur = new THREE.Group();
+    
+    // Body - Sleek and aerodynamic
+    const bodyGeometry = new THREE.ConeGeometry(0.5, 2, 4);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x8B008B,  // Dark magenta
+        emissive: 0x8B008B,
+        emissiveIntensity: 0.3
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.rotation.x = -Math.PI / 2; // Horizontal orientation
+    pterosaur.add(body);
+    
+    // Wings - Large and menacing
+    const wingGeometry = new THREE.PlaneGeometry(4, 1);
+    const wingMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x9400D3, // Darker purple
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9
+    });
+    
+    const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    leftWing.position.set(-1.5, 0, 0);
+    pterosaur.add(leftWing);
+    
+    const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    rightWing.position.set(1.5, 0, 0);
+    pterosaur.add(rightWing);
+    
+    // Head with crest
+    const headGeometry = new THREE.ConeGeometry(0.3, 1, 4);
+    const head = new THREE.Mesh(headGeometry, bodyMaterial);
+    head.position.set(0, 0, 1);
+    head.rotation.x = -Math.PI / 4;
+    pterosaur.add(head);
+    
+    // Crest
+    const crestGeometry = new THREE.ConeGeometry(0.2, 1, 3);
+    const crest = new THREE.Mesh(crestGeometry, wingMaterial);
+    crest.position.set(0, 0.5, 1);
+    crest.rotation.x = Math.PI / 3;
+    pterosaur.add(crest);
+    
+    // Add glow effect
+    const glowGeometry = new THREE.SphereGeometry(1.5, 8, 8);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0x9400D3,
+        transparent: true,
+        opacity: 0.2
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    pterosaur.add(glow);
+    
+    // Pterosaur properties
+    pterosaur.userData.type = 'pterosaur';
+    pterosaur.userData.health = 2; // Takes 2 hits to destroy
+    pterosaur.userData.shootTimer = 0;
+    pterosaur.userData.shootInterval = 2; // Shoots every 2 seconds
+    pterosaur.userData.moveSpeed = 12; // Fast in the air
+    pterosaur.userData.state = 'circle'; // States: circle, dive, retreat
+    pterosaur.userData.height = 15; // Default flying height
+    pterosaur.userData.circleRadius = 20; // Radius when circling
+    pterosaur.userData.circleAngle = Math.random() * Math.PI * 2; // Starting angle
+    pterosaur.userData.wingAngle = 0; // For wing flapping
+    pterosaur.userData.diveTimer = 0; // Time spent in dive state
+    pterosaur.userData.damage = 15; // Damage on collision
+    
+    console.log('Pterosaur created successfully:', {
+        type: pterosaur.userData.type,
+        health: pterosaur.userData.health,
+        interval: pterosaur.userData.shootInterval,
+        speed: pterosaur.userData.moveSpeed
+    });
+    
+    return pterosaur;
+}
+
+// Create pterosaur projectile (energy blast)
+function createPterosaurBlast(position, direction) {
+    const geometry = new THREE.SphereGeometry(0.3, 8, 8);
+    const material = new THREE.MeshStandardMaterial({
+        color: 0x9400D3,
+        emissive: 0x9400D3,
+        emissiveIntensity: 0.7
+    });
+    const blast = new THREE.Mesh(geometry, material);
+    blast.position.copy(position);
+    
+    // Add energy trail effect
+    const trail = new THREE.Mesh(
+        new THREE.ConeGeometry(0.2, 1, 8),
+        new THREE.MeshBasicMaterial({
+            color: 0x9400D3,
+            transparent: true,
+            opacity: 0.4
+        })
+    );
+    blast.add(trail);
+    
+    blast.velocity = direction.normalize().multiplyScalar(40); // Faster than fox bullets
+    blast.userData.type = 'pterosaurBlast';
+    blast.userData.damage = 15;
+    
+    return blast;
+}
+
+// Update pterosaurs function
+function updatePterosaurs() {
+    for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+        const pterosaur = gameState.enemies[i];
+        if (pterosaur.userData.type !== 'pterosaur') continue;
+        
+        // Update shoot timer
+        pterosaur.userData.shootTimer += gameState.deltaTime;
+        
+        // Update wing animation
+        pterosaur.userData.wingAngle += gameState.deltaTime * 5;
+        const wingFlap = Math.sin(pterosaur.userData.wingAngle) * 0.5;
+        pterosaur.children[1].rotation.z = wingFlap; // Left wing
+        pterosaur.children[2].rotation.z = -wingFlap; // Right wing
+        
+        // Calculate distance to player
+        const distanceToPlayer = pterosaur.position.distanceTo(hamster.position);
+        
+        // Handle seed collisions
+        for (let j = gameState.projectiles.length - 1; j >= 0; j--) {
+            const projectile = gameState.projectiles[j];
+            if (!projectile.lifetime && !projectile.userData.type) {
+                if (projectile.position.distanceTo(pterosaur.position) < 2) {
+                    // Remove the projectile
+                    scene.remove(projectile);
+                    gameState.projectiles.splice(j, 1);
+                    
+                    // Damage the pterosaur
+                    pterosaur.userData.health--;
+                    
+                    // Visual feedback
+                    createExplosion(projectile.position, 0x9400D3);
+                    
+                    // If pterosaur is defeated
+                    if (pterosaur.userData.health <= 0) {
+                        scene.remove(pterosaur);
+                        gameState.enemies.splice(i, 1);
+                        
+                        // Add score
+                        const score = 300;
+                        gameState.score += score;
+                        showScorePopup(score, pterosaur.position);
+                        
+                        playSound('hit');
+                        gameState.effects.screenShake = 0.3;
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // State machine for pterosaur behavior
+        switch (pterosaur.userData.state) {
+            case 'circle':
+                // Circle around the player
+                pterosaur.userData.circleAngle += gameState.deltaTime;
+                const circleX = hamster.position.x + Math.cos(pterosaur.userData.circleAngle) * pterosaur.userData.circleRadius;
+                const circleZ = hamster.position.z + Math.sin(pterosaur.userData.circleAngle) * pterosaur.userData.circleRadius;
+                pterosaur.position.x = circleX;
+                pterosaur.position.z = circleZ;
+                pterosaur.position.y = pterosaur.userData.height;
+                
+                // Randomly enter dive state
+                if (Math.random() < 0.01) {
+                    pterosaur.userData.state = 'dive';
+                    pterosaur.userData.diveTimer = 0;
+                }
+                break;
+                
+            case 'dive':
+                // Dive attack towards player
+                const diveDirection = new THREE.Vector3()
+                    .subVectors(hamster.position, pterosaur.position)
+                    .normalize();
+                    
+                pterosaur.position.add(diveDirection.multiplyScalar(pterosaur.userData.moveSpeed * 1.5 * gameState.deltaTime));
+                
+                // Check for collision with player
+                if (distanceToPlayer < 2) {
+                    takeDamage(pterosaur.userData.damage);
+                    pterosaur.userData.state = 'retreat';
+                }
+                
+                // Return to circling after a while
+                pterosaur.userData.diveTimer += gameState.deltaTime;
+                if (pterosaur.userData.diveTimer > 2) {
+                    pterosaur.userData.state = 'circle';
+                }
+                break;
+                
+            case 'retreat':
+                // Quickly fly back to circling height
+                pterosaur.position.y += pterosaur.userData.moveSpeed * gameState.deltaTime;
+                if (pterosaur.position.y >= pterosaur.userData.height) {
+                    pterosaur.userData.state = 'circle';
+                }
+                break;
+        }
+        
+        // Always face the direction of movement
+        pterosaur.lookAt(hamster.position);
+        
+        // Shooting logic
+        if (pterosaur.userData.shootTimer >= pterosaur.userData.shootInterval) {
+            pterosaur.userData.shootTimer = 0;
+            
+            const blastPosition = pterosaur.position.clone();
+            const blastDirection = new THREE.Vector3()
+                .subVectors(hamster.position, blastPosition)
+                .normalize();
+            
+            const blast = createPterosaurBlast(blastPosition, blastDirection);
+            scene.add(blast);
+            gameState.projectiles.push(blast);
             
             playSound('shoot');
         }
