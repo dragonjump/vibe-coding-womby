@@ -670,35 +670,92 @@ function createCollectibleSeed(x, y, z) {
     const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     seed.add(glow);
 
-    // Add blue triangle with 30% chance
+    // Add healing potion with 30% chance
     if (Math.random() < 0.3) {
-        const triangleGeometry = new THREE.BufferGeometry();
-        const vertices = new Float32Array([
-            0, 0.3, 0,    // top
-            -0.2, -0.1, 0, // bottom left
-            0.2, -0.1, 0   // bottom right
-        ]);
-        triangleGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        const triangleMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x0000FF,
-            side: THREE.DoubleSide,
+        const potionGroup = new THREE.Group();
+
+        // Potion bottle body
+        const bottleGeometry = new THREE.CylinderGeometry(0.15, 0.2, 0.4, 8);
+        const bottleMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x00FFFF,
             transparent: true,
-            opacity: 0.7 // Make it slightly transparent
+            opacity: 0.6,
+            metalness: 0.9,
+            roughness: 0.2
         });
-        const triangle = new THREE.Mesh(triangleGeometry, triangleMaterial);
+        const bottle = new THREE.Mesh(bottleGeometry, bottleMaterial);
+        potionGroup.add(bottle);
+
+        // Potion neck
+        const neckGeometry = new THREE.CylinderGeometry(0.08, 0.15, 0.15, 8);
+        const neck = new THREE.Mesh(neckGeometry, bottleMaterial);
+        neck.position.y = 0.275;
+        potionGroup.add(neck);
+
+        // Potion cork
+        const corkGeometry = new THREE.CylinderGeometry(0.09, 0.09, 0.1, 8);
+        const corkMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B4513,
+            roughness: 0.8
+        });
+        const cork = new THREE.Mesh(corkGeometry, corkMaterial);
+        cork.position.y = 0.4;
+        potionGroup.add(cork);
+
+        // Add liquid glow effect
+        const liquidGlow = new THREE.PointLight(0x00FFFF, 2, 1);
+        liquidGlow.position.set(0, 0, 0);
+        potionGroup.add(liquidGlow);
+
+        // Add outer glow effect
+        const potionGlowGeometry = new THREE.CylinderGeometry(0.25, 0.3, 0.6, 8);
+        const potionGlowMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00FFFF,
+            transparent: true,
+            opacity: 0.3
+        });
+        const potionGlow = new THREE.Mesh(potionGlowGeometry, potionGlowMaterial);
+        potionGroup.add(potionGlow);
+
+        // Add floating particles inside the potion
+        for (let i = 0; i < 5; i++) {
+            const particleGeometry = new THREE.SphereGeometry(0.03, 4, 4);
+            const particleMaterial = new THREE.MeshBasicMaterial({
+                color: 0xFFFFFF,
+                transparent: true,
+                opacity: 0.7
+            });
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+            
+            // Random position inside bottle
+            particle.position.set(
+                (Math.random() - 0.5) * 0.2,
+                (Math.random() - 0.5) * 0.2,
+                (Math.random() - 0.5) * 0.2
+            );
+            
+            // Add animation data
+            particle.userData.initialY = particle.position.y;
+            particle.userData.animationOffset = Math.random() * Math.PI * 2;
+            potionGroup.add(particle);
+        }
         
-        // Position triangle farther from the coin with random offset
+        // Position potion beside the coin with random offset
         const angle = Math.random() * Math.PI * 2; // Random angle around the coin
         const distance = 0.8 + Math.random() * 0.4; // Random distance between 0.8 and 1.2 units
-        triangle.position.set(
+        potionGroup.position.set(
             Math.cos(angle) * distance,
             0,
             Math.sin(angle) * distance
         );
-        triangle.rotation.y = Math.random() * Math.PI * 2; // Random rotation around Y axis
-        triangle.userData.type = 'healingTriangle'; // Add type for identification
-        triangle.userData.isCollected = false; // Track if it's been collected
-        seed.add(triangle);
+        
+        // Add animation properties
+        potionGroup.userData.type = 'healingPotion';
+        potionGroup.userData.isCollected = false;
+        potionGroup.userData.floatOffset = Math.random() * Math.PI * 2;
+        potionGroup.userData.rotationSpeed = 1 + Math.random();
+        
+        seed.add(potionGroup);
     }
     
     // Set position closer to ground
