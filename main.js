@@ -1706,21 +1706,34 @@ function initializeLevelElements(level) {
         );
         scene.add(moon);
         
-        // Add ambient light with increased intensity
-        const ambientLight = new THREE.AmbientLight(level.environment.ambientLight, 0.5);
+        // Add stronger ambient light
+        const ambientLight = new THREE.AmbientLight(0x6666ff, 1.5); // Increased intensity
         scene.add(ambientLight);
         
-        // Add stronger moonlight
-        const moonLight = new THREE.DirectionalLight(0xC0C0C0, 0.4);
-        moonLight.position.copy(moon.position);
+        // Add stronger moonlight with proper shadow setup
+        const moonLight = new THREE.DirectionalLight(0xE0E0E0, 1.0);
+        moonLight.position.set(-100, 100, -100);
+        moonLight.castShadow = true;
+        moonLight.shadow.mapSize.width = 2048;
+        moonLight.shadow.mapSize.height = 2048;
+        moonLight.shadow.camera.near = 0.5;
+        moonLight.shadow.camera.far = 500;
+        moonLight.shadow.camera.left = -100;
+        moonLight.shadow.camera.right = 100;
+        moonLight.shadow.camera.top = 100;
+        moonLight.shadow.camera.bottom = -100;
         scene.add(moonLight);
         
-        // Add a subtle blue rim light for the mountains
-        const blueLight = new THREE.DirectionalLight(0x4466ff, 0.2);
+        // Add hemisphere light for better ambient illumination
+        const hemisphereLight = new THREE.HemisphereLight(0x4466ff, 0x222233, 0.8);
+        scene.add(hemisphereLight);
+        
+        // Add a stronger blue rim light for the mountains
+        const blueLight = new THREE.DirectionalLight(0x4466ff, 0.5); // Increased from 0.3
         blueLight.position.set(-moon.position.x, moon.position.y, -moon.position.z);
         scene.add(blueLight);
         
-        // Add stars
+        // Add stars with increased brightness
         const starsGeometry = new THREE.BufferGeometry();
         const starPositions = [];
         for (let i = 0; i < 2000; i++) {
@@ -1735,9 +1748,9 @@ function initializeLevelElements(level) {
         starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
         const starsMaterial = new THREE.PointsMaterial({
             color: 0xFFFFFF,
-            size: 0.5,
+            size: 0.6,  // Increased from 0.5
             transparent: true,
-            opacity: 0.8,
+            opacity: 0.9,  // Increased from 0.8
             sizeAttenuation: false
         });
         const starField = new THREE.Points(starsGeometry, starsMaterial);
@@ -2375,38 +2388,28 @@ function createExplosion(position, color = 0xff4444) {
 
 // Create mountain for scenery
 function createMountain(position, height, color) {
+    console.log('Creating mountain with color:', color.toString(16));
     const segments = 4;
     const geometry = new THREE.ConeGeometry(height * 0.6, height, segments);
     const material = new THREE.MeshPhongMaterial({ 
         color: color,
-        shininess: 10,
-        flatShading: true,
-        emissive: 0x000033,  // Subtle blue emissive for night time
-        emissiveIntensity: 0.1,
-        specular: 0x333333,
-        opacity: 1,
-        transparent: false
+        shininess: 60,
+        specular: 0x4466ff,  // Blue-tinted specular highlights
+        emissive: 0x222244,  // Slight blue emissive glow
+        emissiveIntensity: 0.2
     });
+    
+    console.log('Mountain material color:', material.color);
     
     const mountain = new THREE.Mesh(geometry, material);
     mountain.position.copy(position);
     mountain.castShadow = true;
     mountain.receiveShadow = true;
 
-    // Add snow cap if mountain is tall enough
-    if (height > 30) {  // Increased height threshold
-        const snowGeometry = new THREE.ConeGeometry(height * 0.15, height * 0.15, segments);
-        const snowMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0xaaaacc,  // Slightly blue-tinted snow
-            shininess: 30,
-            emissive: 0x222244,  // Subtle blue emissive for snow
-            emissiveIntensity: 0.1,
-            specular: 0x666666
-        });
-        const snowCap = new THREE.Mesh(snowGeometry, snowMaterial);
-        snowCap.position.y = height * 0.45;
-        snowCap.castShadow = true;
-        mountain.add(snowCap);
+    // Add debug visual helper
+    if (window.location.search.includes('debug=true')) {
+        const helper = new THREE.BoxHelper(mountain, 0xffff00);
+        mountain.add(helper);
     }
 
     return mountain;
@@ -3558,11 +3561,9 @@ toggleControlsBtn.addEventListener('mouseout', () => {
 function initScene() {
     scene = new THREE.Scene();
     
-    // Enable tone mapping for better dark scene rendering
+    // Enable tone mapping and adjust exposure for better visibility
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.5; // Lower exposure for darker scenes
-    
-    // Enable encoding for proper color rendering
+    renderer.toneMappingExposure = 1.5; // Increased exposure
     renderer.outputEncoding = THREE.sRGBEncoding;
     
     const currentLevel = levelManager.getCurrentLevel();
@@ -3573,9 +3574,9 @@ function initScene() {
         scene.fog = new THREE.FogExp2(currentLevel.environment.skyColor, currentLevel.environment.fogDensity);
     }
     
-    // For level 3, ensure darker rendering
+    // For level 3, ensure proper rendering of white mountains
     if (currentLevel.id === 3) {
-        scene.background.convertSRGBToLinear(); // Convert to linear space for accurate dark colors
-        renderer.toneMappingExposure = 0.3; // Even lower exposure for level 3
+        renderer.toneMappingExposure = 2.0; // Higher exposure for level 3
+        scene.fog.density = 0.008; // Reduced fog density
     }
 }

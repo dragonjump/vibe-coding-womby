@@ -49,27 +49,33 @@ class TerrainChunk {
         }
         geometry.computeVertexNormals();
 
-        // Create terrain material with grass texture
-        const material = new THREE.MeshStandardMaterial({
-            color: 0x3b7d4f,
-            roughness: 0.8,
-            metalness: 0.1,
-            vertexColors: true
-        });
-
         // Add vertex colors based on height and slope
         const colors = new Float32Array(vertices.length);
+        const isSunsetLevel = window.location.search.includes('level=sunset');
+        
         for (let i = 0; i < vertices.length; i += 3) {
             const height = vertices[i + 1];
             const slope = this.calculateSlope(vertices, i);
             
             const color = new THREE.Color();
-            if (height < 0.5) {
-                color.setHex(0x3b7d4f); // Grass
-            } else if (height < 5) {
-                color.setHex(0x4f6d3b); // Dark grass
+            if (isSunsetLevel) {
+                // Dark blue color scheme for sunset level
+                if (height < 0.5) {
+                    color.setHex(0x1a237e); // Darkest blue for valleys
+                } else if (height < 5) {
+                    color.setHex(0x283593); // Medium dark blue for slopes
+                } else {
+                    color.setHex(0x3949ab); // Slightly lighter blue for peaks
+                }
             } else {
-                color.setHex(0x6d6d6d); // Rock
+                // Original green color scheme
+                if (height < 0.5) {
+                    color.setHex(0x3b7d4f); // Grass
+                } else if (height < 5) {
+                    color.setHex(0x4f6d3b); // Dark grass
+                } else {
+                    color.setHex(0x6d6d6d); // Rock
+                }
             }
             
             colors[i] = color.r;
@@ -77,6 +83,14 @@ class TerrainChunk {
             colors[i + 2] = color.b;
         }
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        // Create terrain material with grass texture
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x3b7d4f,
+            roughness: 0.8,
+            metalness: 0.1,
+            vertexColors: true
+        });
 
         // Create terrain mesh
         this.meshes.terrain = new THREE.Mesh(geometry, material);
@@ -317,7 +331,16 @@ export class TerrainManager {
     }
 
     setGroundColor(color) {
-        this.groundMaterial.color.copy(color);
+        // Special handling for sunset level (level 3)
+        if (window.location.search.includes('level=sunset')) {
+            this.groundMaterial.color = new THREE.Color(0x1a237e); // Dark blue for sunset level
+            this.groundMaterial.emissive = new THREE.Color(0x1a237e);
+            this.groundMaterial.emissiveIntensity = 0.2;
+        } else {
+            this.groundMaterial.color.copy(color);
+            this.groundMaterial.emissive = new THREE.Color(0x000000);
+            this.groundMaterial.emissiveIntensity = 0;
+        }
     }
 
     reset() {
