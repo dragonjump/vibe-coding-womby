@@ -353,39 +353,247 @@ startScreen.style.position = 'absolute';
 startScreen.style.top = '50%';
 startScreen.style.left = '50%';
 startScreen.style.transform = 'translate(-50%, -50%)';
-startScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-startScreen.style.padding = '20px';
-startScreen.style.borderRadius = '10px';
+startScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+startScreen.style.padding = '30px';
+startScreen.style.borderRadius = '15px';
 startScreen.style.textAlign = 'center';
 startScreen.style.zIndex = '1000';
+startScreen.style.backdropFilter = 'blur(5px)';
+startScreen.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
 startScreen.innerHTML = `
-    <h1 style="color: white; margin-bottom: 20px;">Rocket Hamster Adventure</h1>
+    <h1 style="
+        color: white;
+        margin-bottom: 30px;
+        font-size: 36px;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    ">Rocket Hamster Adventure</h1>
     <div style="color: white; margin-bottom: 20px;">
-        <h2>Select Level:</h2>
-        <div style="display: flex; flex-direction: column; gap: 10px; margin: 20px 0;">
-            <button class="level-button" data-level="training" style="padding: 10px; cursor: pointer;">Training Grounds</button>
-            <button class="level-button" data-level="cloud" style="padding: 10px; cursor: pointer;">Cloud City</button>
-            <button class="level-button" data-level="sunset" style="padding: 10px; cursor: pointer;">Sunset Challenge</button>
+        <h2 style="
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #FFD700;
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+        ">Select Level:</h2>
+        <div style="
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0;
+        ">
+            <button class="level-button" data-level="training" style="
+                padding: 15px;
+                cursor: pointer;
+                background: rgba(255, 255, 255, 0.1);
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+                color: white;
+                font-size: 18px;
+                transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            ">Training Grounds</button>
+            <button class="level-button" data-level="cloud" style="
+                padding: 15px;
+                cursor: pointer;
+                background: rgba(255, 255, 255, 0.1);
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+                color: white;
+                font-size: 18px;
+                transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            ">Cloud City</button>
+            <button class="level-button" data-level="sunset" style="
+                padding: 15px;
+                cursor: pointer;
+                background: rgba(255, 255, 255, 0.1);
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+                color: white;
+                font-size: 18px;
+                transition: all 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            ">Sunset Challenge</button>
         </div>
     </div>
-    <p style="color: white; margin-bottom: 20px;">
-        WASD - Move<br>
-        SPACE - Jump<br>
-        SHIFT - Rocket Boost<br>
-        LEFT CLICK - Shoot Seeds<br>
-        ESC - Pause
-    </p>
-    <button id="startButton" style="padding: 10px 20px; margin: 5px; cursor: pointer; font-size: 18px;">Start Game</button>
+    <div style="
+        color: white;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+    ">
+        <p style="margin-bottom: 10px; font-size: 16px;">Controls:</p>
+        <div style="
+            display: grid;
+            grid-template-columns: auto auto;
+            gap: 10px;
+            justify-content: center;
+            text-align: left;
+        ">
+            <span>WASD</span><span>- Move</span>
+            <span>SPACE</span><span>- Jump</span>
+            <span>SHIFT</span><span>- Rocket Boost</span>
+            <span>LEFT CLICK</span><span>- Shoot Seeds</span>
+            <span>ESC</span><span>- Pause</span>
+        </div>
+    </div>
+    <button id="startButton" style="
+        padding: 15px 30px;
+        margin: 5px;
+        cursor: pointer;
+        font-size: 20px;
+        background: linear-gradient(45deg, #4CAF50, #45a049);
+        border: none;
+        border-radius: 25px;
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    ">Start Game</button>
 `;
 document.body.appendChild(startScreen);
 
-// Add level selection handlers
+// Add hover effects for level buttons
+document.querySelectorAll('.level-button').forEach(button => {
+    button.addEventListener('mouseover', () => {
+        button.style.transform = 'scale(1.05)';
+        button.style.background = 'rgba(255, 255, 255, 0.2)';
+        button.style.borderColor = '#4CAF50';
+        button.style.boxShadow = '0 0 15px rgba(76, 175, 80, 0.5)';
+    });
+
+    button.addEventListener('mouseout', () => {
+        if (!button.classList.contains('selected')) {
+            button.style.transform = 'scale(1)';
+            button.style.background = 'rgba(255, 255, 255, 0.1)';
+            button.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            button.style.boxShadow = 'none';
+        }
+    });
+});
+
+// Create background scene for menu
+const menuScene = new THREE.Scene();
+menuScene.background = new THREE.Color(0x87CEEB);
+
+// Add ambient light to menu scene
+const menuAmbientLight = new THREE.AmbientLight(0xffffff, 0.6);
+menuScene.add(menuAmbientLight);
+
+// Add directional light to menu scene
+const menuDirectionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+menuDirectionalLight.position.set(5, 10, 5);
+menuScene.add(menuDirectionalLight);
+
+// Create floating hamster for menu
+const menuHamster = createHamster();
+menuHamster.position.set(0, 2, -5);
+menuScene.add(menuHamster);
+
+// Add some floating clouds in the background
+for (let i = 0; i < 10; i++) {
+    const cloud = new THREE.Group();
+    const numPuffs = 3 + Math.floor(Math.random() * 3);
+    
+    for (let j = 0; j < numPuffs; j++) {
+        const puff = new THREE.Mesh(
+            new THREE.SphereGeometry(0.5 + Math.random() * 0.5, 8, 8),
+            new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                metalness: 0.1,
+                roughness: 0.8,
+                transparent: true,
+                opacity: 0.8
+            })
+        );
+        puff.position.set(
+            j * 0.4,
+            Math.random() * 0.2,
+            Math.random() * 0.2
+        );
+        cloud.add(puff);
+    }
+    
+    cloud.position.set(
+        (Math.random() - 0.5) * 20,
+        Math.random() * 10 + 5,
+        (Math.random() - 0.5) * 20 - 10
+    );
+    
+    cloud.userData = {
+        rotationSpeed: (Math.random() - 0.5) * 0.2,
+        floatSpeed: 0.2 + Math.random() * 0.3,
+        floatOffset: Math.random() * Math.PI * 2
+    };
+    
+    menuScene.add(cloud);
+}
+
+// Add floating coins
+const menuCoins = [];
+for (let i = 0; i < 5; i++) {
+    const coin = createCollectibleSeed(
+        (Math.random() - 0.5) * 10,
+        Math.random() * 5 + 2,
+        (Math.random() - 0.5) * 10 - 8
+    );
+    menuScene.add(coin);
+    menuCoins.push(coin);
+}
+
+// Menu animation loop
+function animateMenu(time) {
+    if (gameState.state === 'start') {
+        // Animate hamster
+        menuHamster.rotation.y = Math.sin(time * 0.001) * 0.2;
+        menuHamster.position.y = 2 + Math.sin(time * 0.002) * 0.3;
+
+        // Animate clouds
+        menuScene.children.forEach(child => {
+            if (child.userData && child.userData.floatSpeed) {
+                child.position.y += Math.sin(time * 0.001 + child.userData.floatOffset) * 0.01 * child.userData.floatSpeed;
+                child.rotation.y += child.userData.rotationSpeed * 0.01;
+            }
+        });
+
+        // Animate coins
+        menuCoins.forEach(coin => {
+            coin.rotation.y += 0.02;
+            coin.position.y = coin.userData.baseY + Math.sin(time * 0.002 + coin.userData.floatOffset) * 0.2;
+        });
+
+        // Render menu scene
+        renderer.render(menuScene, camera);
+    }
+    
+    requestAnimationFrame(animateMenu);
+}
+
+// Start menu animation
+animateMenu(0);
+
+// Modify level selection handlers
 document.querySelectorAll('.level-button').forEach(button => {
     button.addEventListener('click', () => {
-        // Update selected level visual feedback
-        document.querySelectorAll('.level-button').forEach(b => 
-            b.style.backgroundColor = '');
-        button.style.backgroundColor = '#4CAF50';
+        // Remove selection from all buttons
+        document.querySelectorAll('.level-button').forEach(b => {
+            b.classList.remove('selected');
+            b.style.transform = 'scale(1)';
+            b.style.background = 'rgba(255, 255, 255, 0.1)';
+            b.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            b.style.boxShadow = 'none';
+        });
+        
+        // Add selection to clicked button
+        button.classList.add('selected');
+        button.style.transform = 'scale(1.05)';
+        button.style.background = 'rgba(76, 175, 80, 0.3)';
+        button.style.borderColor = '#4CAF50';
+        button.style.boxShadow = '0 0 15px rgba(76, 175, 80, 0.5)';
         
         // Set the level
         levelManager.setLevel(button.dataset.level);
