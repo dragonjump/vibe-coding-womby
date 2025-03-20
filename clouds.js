@@ -78,6 +78,33 @@ export class CloudManager {
             light.position.set(0, 0, 0);
             cloudGroup.add(light);
         }
+        // Add subtle moonlight reflection for night time clouds (level 3)
+        else if (this.currentLevel === 3) {
+            const moonlitMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a2e,
+                metalness: 0.1,
+                roughness: 0.8,
+                transparent: true,
+                opacity: 0.6
+            });
+            cloudGroup.children.forEach(child => {
+                if (child.material) {
+                    child.material = moonlitMaterial;
+                }
+            });
+
+            // Add subtle glow for moonlit clouds
+            if (Math.random() < 0.2) {
+                const glowGeometry = new THREE.SphereGeometry(size * 1.1, 16, 16);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x3a3a5c,
+                    transparent: true,
+                    opacity: 0.1,
+                });
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                cloudGroup.add(glow);
+            }
+        }
         
         // Position the entire cloud
         cloudGroup.position.set(x, y, z);

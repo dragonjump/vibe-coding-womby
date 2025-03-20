@@ -85,16 +85,16 @@ export const LEVELS = [
             { x: 0, y: 7, z: 0, w: 3, h: 1, d: 3, moving: true, speed: 1.0 }
         ],
         environment: {
-            groundColor: 0x2c3e50,    // Dark blue ground
-            skyColor: 0x1a237e,       // Deep blue sky
-            fogDensity: 0.008,        // Increased fog for depth
-            sunPosition: { x: -100, y: 30, z: -200 },
-            sunColor: 0xff7f50,       // Coral colored sun
-            ambientLight: 0x2c3e50,   // Dark blue ambient
-            mountainColor: 0x1a237e,   // Dark blue mountains
-            mountainCount: 15,         // Number of background mountains
-            mountainRadius: 150,       // Distance of mountains from center
-            mountainHeightRange: { min: 15, max: 35 } // Mountain height variation
+            groundColor: 0x000000,    // Black ground for night time
+            skyColor: 0x000033,       // Very dark blue sky for night time
+            fogDensity: 0.025,        // Slightly increased fog for night atmosphere
+            sunPosition: { x: -100, y: 80, z: -200 }, // Higher position for moon
+            sunColor: 0xC0C0C0,       // Silver color for moon
+            ambientLight: 0x000033,   // Very dark blue ambient to match sky
+            mountainColor: 0x0033cc,   // Brighter blue mountains for better visibility
+            mountainCount: 18,
+            mountainRadius: 150,
+            mountainHeightRange: { min: 20, max: 45 }
         }
     }
 ];

@@ -1494,17 +1494,17 @@ const touchButtons = {
 Object.entries(touchButtons).forEach(([id, handlers]) => {
     const button = document.getElementById(id);
     if (button) {
-        button.addEventListener('touchstart', (e) => {
-            e.preventDefault();
+    button.addEventListener('touchstart', (e) => {
+        e.preventDefault();
             button.style.backgroundColor = 'rgba(255,255,255,0.5)';
-            handlers.press();
-        });
+        handlers.press();
+    });
         
-        button.addEventListener('touchend', (e) => {
-            e.preventDefault();
+    button.addEventListener('touchend', (e) => {
+        e.preventDefault();
             button.style.backgroundColor = 'rgba(255,255,255,0.3)';
-            handlers.release();
-        });
+        handlers.release();
+    });
         
         button.addEventListener('touchcancel', (e) => {
             e.preventDefault();
@@ -1614,9 +1614,9 @@ function initializeLevelElements(level) {
             });
 
             // Add subtle glow effect
-            const glowMaterial = new THREE.MeshBasicMaterial({
+        const glowMaterial = new THREE.MeshBasicMaterial({
                 color: 0xffffff,
-                transparent: true,
+            transparent: true,
                 opacity: 0.15 + Math.random() * 0.1
             });
 
@@ -1636,9 +1636,9 @@ function initializeLevelElements(level) {
                 obs.z + (Math.random() - 0.5) * 80 // Doubled Z spread to 80
             );
             
-            obstacle.userData.type = 'obstacle';
-            obstacle.userData.boundingBox = new THREE.Box3().setFromObject(obstacle);
-            
+        obstacle.userData.type = 'obstacle';
+        obstacle.userData.boundingBox = new THREE.Box3().setFromObject(obstacle);
+        
             // Add movement properties with increased speeds
             obstacle.userData.moving = true;
             obstacle.userData.startPos = obstacle.position.clone();
@@ -1676,9 +1676,9 @@ function initializeLevelElements(level) {
             }
             animateParticles();
 
-            // Add to game state and scene
-            gameState.obstacles.push(obstacle);
-            scene.add(obstacle);
+        // Add to game state and scene
+        gameState.obstacles.push(obstacle);
+        scene.add(obstacle);
         }
     });
 
@@ -1694,9 +1694,9 @@ function initializeLevelElements(level) {
     hamster.position.set(0, 2, 0);
     gameState.player.velocity.set(0, 0, 0);
 
-    if (level.id === 3) { // Sunset Challenge
-        // Create setting sun
-        const sun = createSettingSun(
+    if (level.id === 3) { // Sunset Challenge (now Night Challenge)
+        // Create moon (previously sun)
+        const moon = createSettingSun(
             new THREE.Vector3(
                 level.environment.sunPosition.x,
                 level.environment.sunPosition.y,
@@ -1704,11 +1704,44 @@ function initializeLevelElements(level) {
             ),
             level.environment.sunColor
         );
-        scene.add(sun);
+        scene.add(moon);
         
-        // Add ambient light
+        // Add ambient light with increased intensity
         const ambientLight = new THREE.AmbientLight(level.environment.ambientLight, 0.5);
         scene.add(ambientLight);
+        
+        // Add stronger moonlight
+        const moonLight = new THREE.DirectionalLight(0xC0C0C0, 0.4);
+        moonLight.position.copy(moon.position);
+        scene.add(moonLight);
+        
+        // Add a subtle blue rim light for the mountains
+        const blueLight = new THREE.DirectionalLight(0x4466ff, 0.2);
+        blueLight.position.set(-moon.position.x, moon.position.y, -moon.position.z);
+        scene.add(blueLight);
+        
+        // Add stars
+        const starsGeometry = new THREE.BufferGeometry();
+        const starPositions = [];
+        for (let i = 0; i < 2000; i++) {
+            const x = THREE.MathUtils.randFloatSpread(1000);
+            const y = THREE.MathUtils.randFloatSpread(500);
+            const z = THREE.MathUtils.randFloatSpread(1000);
+            // Only add stars above the horizon
+            if (y > 20) {
+                starPositions.push(x, y, z);
+            }
+        }
+        starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+        const starsMaterial = new THREE.PointsMaterial({
+            color: 0xFFFFFF,
+            size: 0.5,
+            transparent: true,
+            opacity: 0.8,
+            sizeAttenuation: false
+        });
+        const starField = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(starField);
         
         // Add fog for depth
         scene.fog = new THREE.FogExp2(level.environment.skyColor, level.environment.fogDensity);
@@ -2053,6 +2086,12 @@ const dayNightCycle = {
     time: 0,
     duration: 120, // 2 minutes per cycle
     update: function(deltaTime) {
+        // Skip day/night cycle for level 3 (night level)
+        const currentLevel = levelManager.getCurrentLevel();
+        if (currentLevel && currentLevel.id === 3) {
+            return;
+        }
+
         this.time = (this.time + deltaTime) % this.duration;
         const cycle = (Math.sin(this.time / this.duration * Math.PI * 2) + 1) / 2;
         
@@ -2340,8 +2379,13 @@ function createMountain(position, height, color) {
     const geometry = new THREE.ConeGeometry(height * 0.6, height, segments);
     const material = new THREE.MeshPhongMaterial({ 
         color: color,
-        shininess: 0,
-        flatShading: true
+        shininess: 10,
+        flatShading: true,
+        emissive: 0x000033,  // Subtle blue emissive for night time
+        emissiveIntensity: 0.1,
+        specular: 0x333333,
+        opacity: 1,
+        transparent: false
     });
     
     const mountain = new THREE.Mesh(geometry, material);
@@ -2350,14 +2394,17 @@ function createMountain(position, height, color) {
     mountain.receiveShadow = true;
 
     // Add snow cap if mountain is tall enough
-    if (height > 25) {
-        const snowGeometry = new THREE.ConeGeometry(height * 0.2, height * 0.2, segments);
+    if (height > 30) {  // Increased height threshold
+        const snowGeometry = new THREE.ConeGeometry(height * 0.15, height * 0.15, segments);
         const snowMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0xffffff,
-            shininess: 10
+            color: 0xaaaacc,  // Slightly blue-tinted snow
+            shininess: 30,
+            emissive: 0x222244,  // Subtle blue emissive for snow
+            emissiveIntensity: 0.1,
+            specular: 0x666666
         });
         const snowCap = new THREE.Mesh(snowGeometry, snowMaterial);
-        snowCap.position.y = height * 0.4;
+        snowCap.position.y = height * 0.45;
         snowCap.castShadow = true;
         mountain.add(snowCap);
     }
@@ -3507,3 +3554,28 @@ toggleControlsBtn.addEventListener('mouseout', () => {
         toggleControlsBtn.querySelector('svg').style.transform = 'rotate(0deg)';
     }
 });
+
+function initScene() {
+    scene = new THREE.Scene();
+    
+    // Enable tone mapping for better dark scene rendering
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.5; // Lower exposure for darker scenes
+    
+    // Enable encoding for proper color rendering
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    
+    const currentLevel = levelManager.getCurrentLevel();
+    
+    // Set background and fog
+    scene.background = new THREE.Color(currentLevel.environment.skyColor);
+    if (currentLevel.environment.fogDensity > 0) {
+        scene.fog = new THREE.FogExp2(currentLevel.environment.skyColor, currentLevel.environment.fogDensity);
+    }
+    
+    // For level 3, ensure darker rendering
+    if (currentLevel.id === 3) {
+        scene.background.convertSRGBToLinear(); // Convert to linear space for accurate dark colors
+        renderer.toneMappingExposure = 0.3; // Even lower exposure for level 3
+    }
+}
