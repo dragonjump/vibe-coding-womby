@@ -410,8 +410,9 @@ document.getElementById('startButton').addEventListener('click', () => {
     startScreen.style.display = 'none';
     gameState.state = 'playing';
     
-    // Initialize level
+    // Initialize level and update touch controls
     resetGame();
+    updateTouchControls();
 });
 
 // Sound setup
@@ -1036,75 +1037,231 @@ function playBackgroundMusic(track) {
 // Mobile controls
 const touchControls = document.createElement('div');
 touchControls.style.position = 'fixed';
-touchControls.style.bottom = '20px';
-touchControls.style.left = '50%';
-touchControls.style.transform = 'translateX(-50%)';
-touchControls.style.display = 'none';
+touchControls.style.width = '100%';
+touchControls.style.height = '100%';
+touchControls.style.pointerEvents = 'none';
 touchControls.style.zIndex = '1000';
+touchControls.style.display = 'none'; // Hide by default
 touchControls.innerHTML = `
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-        <button id="jumpBtn" style="
+    <!-- Movement Controls (Right Side) -->
+    <div id="moveControls" style="
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        display: grid;
+        grid-template-columns: repeat(3, 60px);
+        grid-template-rows: repeat(3, 60px);
+        gap: 5px;
+        pointer-events: auto;
+        height: 190px;
+        min-height: 190px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 15px;
+        padding: 5px;
+    ">
+        <div></div>
+        <button id="upBtn" style="
             grid-column: 2;
-            padding: 20px;
-            background: rgba(255,255,255,0.5);
-            border: none;
-            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 10px;
+            color: white;
             font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         ">↑</button>
+        <div></div>
         <button id="leftBtn" style="
-            padding: 20px;
-            background: rgba(255,255,255,0.5);
-            border: none;
-            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 10px;
+            color: white;
             font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         ">←</button>
-        <button id="boostBtn" style="
-            padding: 20px;
-            background: rgba(255,255,255,0.5);
-            border: none;
-            border-radius: 50%;
-            font-size: 24px;
-        ">🚀</button>
+        <div></div>
         <button id="rightBtn" style="
-            padding: 20px;
-            background: rgba(255,255,255,0.5);
-            border: none;
-            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 10px;
+            color: white;
             font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         ">→</button>
+        <div></div>
+        <button id="downBtn" style="
+            grid-column: 2;
+            background: rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 10px;
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        ">↓</button>
+        <div></div>
+    </div>
+
+    <!-- Action Controls (Left Side) -->
+    <div id="actionControls" style="
+        position: fixed;
+        left: 20px;
+        bottom: 20px;
+        display: grid;
+        grid-template-columns: repeat(2, 70px);
+        grid-template-rows: repeat(2, 70px);
+        gap: 10px;
+        pointer-events: auto;
+        height: 150px;
+        min-height: 150px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 15px;
+        padding: 5px;
+    ">
+        <button id="jumpBtn" style="
+            background: rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 10px;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        ">JUMP</button>
+        <button id="shootBtn" style="
+            background: rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 10px;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        ">SHOOT</button>
+        <button id="boostBtn" style="
+            grid-column: span 2;
+            background: rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 10px;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        ">BOOST</button>
     </div>
 `;
 document.body.appendChild(touchControls);
 
-// Show/hide touch controls based on device
+// Show/hide touch controls and adjust layout based on device and orientation
 function updateTouchControls() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    touchControls.style.display = isMobile ? 'block' : 'none';
-}
+    const isLandscape = window.innerWidth > window.innerHeight;
+    
+    // Only show controls if on mobile AND game is in playing state
+    if (!isMobile || gameState.state === 'start') {
+        touchControls.style.display = 'none';
+        return;
+    }
 
-// Initial check for touch controls
-updateTouchControls();
-window.addEventListener('resize', updateTouchControls);
+    touchControls.style.display = 'block';
+    const moveControls = document.getElementById('moveControls');
+    const actionControls = document.getElementById('actionControls');
+
+    // Ensure controls don't overflow screen
+    const safeArea = Math.min(window.innerHeight * 0.3, 200); // Maximum 30% of screen height or 200px
+
+    if (isLandscape) {
+        // Landscape layout
+        moveControls.style.transform = 'scale(0.8)';
+        moveControls.style.right = '20px';
+        moveControls.style.bottom = '20px';
+        moveControls.style.height = `${safeArea}px`;
+
+        actionControls.style.transform = 'scale(0.8)';
+        actionControls.style.left = '20px';
+        actionControls.style.bottom = '20px';
+        actionControls.style.height = `${safeArea * 0.8}px`;
+    } else {
+        // Portrait layout
+        moveControls.style.transform = 'scale(1)';
+        moveControls.style.right = '20px';
+        moveControls.style.bottom = '20px';
+        moveControls.style.height = `${safeArea}px`;
+
+        actionControls.style.transform = 'scale(1)';
+        actionControls.style.left = '20px';
+        actionControls.style.bottom = '20px';
+        actionControls.style.height = `${safeArea * 0.8}px`;
+    }
+}
 
 // Touch control event handlers
 const touchButtons = {
-    jumpBtn: { press: () => gameState.keys.space = true, release: () => gameState.keys.space = false },
+    upBtn: { press: () => gameState.keys.forward = true, release: () => gameState.keys.forward = false },
+    downBtn: { press: () => gameState.keys.backward = true, release: () => gameState.keys.backward = false },
     leftBtn: { press: () => gameState.keys.left = true, release: () => gameState.keys.left = false },
     rightBtn: { press: () => gameState.keys.right = true, release: () => gameState.keys.right = false },
-    boostBtn: { press: () => gameState.keys.shift = true, release: () => gameState.keys.shift = false }
+    jumpBtn: { press: () => gameState.keys.space = true, release: () => gameState.keys.space = false },
+    boostBtn: { press: () => gameState.keys.shift = true, release: () => gameState.keys.shift = false },
+    shootBtn: { press: () => handleClick(new Event('click')), release: () => {} }
 };
 
+// Add touch event listeners
 Object.entries(touchButtons).forEach(([id, handlers]) => {
     const button = document.getElementById(id);
-    button.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        handlers.press();
-    });
-    button.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        handlers.release();
-    });
+    if (button) {
+        button.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            button.style.backgroundColor = 'rgba(255,255,255,0.5)';
+            handlers.press();
+        });
+        
+        button.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            button.style.backgroundColor = 'rgba(255,255,255,0.3)';
+            handlers.release();
+        });
+        
+        button.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            button.style.backgroundColor = 'rgba(255,255,255,0.3)';
+            handlers.release();
+        });
+    }
 });
+
+// Initial check and update on resize
+updateTouchControls();
+window.addEventListener('resize', updateTouchControls);
+window.addEventListener('orientationchange', updateTouchControls);
 
 // Add shooting control for mobile
 canvas.addEventListener('touchstart', (e) => {
