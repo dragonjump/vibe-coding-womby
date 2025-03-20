@@ -261,44 +261,73 @@ function createRocketParticle() {
     return particle;
 }
 
-// Modify createHamster to add multiple rocket exhaust points
+// Create wombat character with rocket pack
 function createHamster() {
     // Body
     const body = new THREE.Group();
     
-    // Main body (sphere)
-    const bodyGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xBB8855 }); // Brown color
+    // Main body (rounded cube for stocky wombat shape)
+    const bodyGeometry = new THREE.BoxGeometry(0.8, 0.6, 1);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Dark brown color
     const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    bodyMesh.position.y = 0.1; // Slightly raised
     body.add(bodyMesh);
 
-    // Head (smaller sphere)
-    const headGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-    const headMaterial = new THREE.MeshStandardMaterial({ color: 0xBB8855 });
+    // Head (wider and more squared)
+    const headGeometry = new THREE.BoxGeometry(0.6, 0.5, 0.5);
+    const headMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
     const headMesh = new THREE.Mesh(headGeometry, headMaterial);
-    headMesh.position.z = 0.4;
+    headMesh.position.z = 0.6;
     headMesh.position.y = 0.2;
     body.add(headMesh);
 
-    // Ears (cones)
-    const earGeometry = new THREE.ConeGeometry(0.15, 0.3, 8);
-    const earMaterial = new THREE.MeshStandardMaterial({ color: 0xBB8855 });
+    // Nose (characteristic wombat feature)
+    const noseGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.1);
+    const noseMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 }); // Black nose
+    const noseMesh = new THREE.Mesh(noseGeometry, noseMaterial);
+    noseMesh.position.set(0, 0.1, 0.85);
+    body.add(noseMesh);
+
+    // Small rounded ears
+    const earGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.1);
+    const earMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
     
     const leftEar = new THREE.Mesh(earGeometry, earMaterial);
-    leftEar.position.set(0.15, 0.5, 0.4);
-    leftEar.rotation.x = -0.5;
+    leftEar.position.set(0.2, 0.4, 0.6);
     body.add(leftEar);
     
     const rightEar = new THREE.Mesh(earGeometry, earMaterial);
-    rightEar.position.set(-0.15, 0.5, 0.4);
-    rightEar.rotation.x = -0.5;
+    rightEar.position.set(-0.2, 0.4, 0.6);
     body.add(rightEar);
 
+    // Short, sturdy legs
+    const legGeometry = new THREE.BoxGeometry(0.2, 0.3, 0.2);
+    const legMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+    
+    // Front legs
+    const frontLeftLeg = new THREE.Mesh(legGeometry, legMaterial);
+    frontLeftLeg.position.set(0.3, -0.2, 0.3);
+    body.add(frontLeftLeg);
+    
+    const frontRightLeg = new THREE.Mesh(legGeometry, legMaterial);
+    frontRightLeg.position.set(-0.3, -0.2, 0.3);
+    body.add(frontRightLeg);
+    
+    // Back legs
+    const backLeftLeg = new THREE.Mesh(legGeometry, legMaterial);
+    backLeftLeg.position.set(0.3, -0.2, -0.3);
+    body.add(backLeftLeg);
+    
+    const backRightLeg = new THREE.Mesh(legGeometry, legMaterial);
+    backRightLeg.position.set(-0.3, -0.2, -0.3);
+    body.add(backRightLeg);
+
     // Rocket pack (box)
-    const rocketGeometry = new THREE.BoxGeometry(0.4, 0.6, 0.3);
+    const rocketGeometry = new THREE.BoxGeometry(0.5, 0.6, 0.3);
     const rocketMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 }); // Gray color
     const rocketMesh = new THREE.Mesh(rocketGeometry, rocketMaterial);
     rocketMesh.position.z = -0.4;
+    rocketMesh.position.y = 0.1;
     body.add(rocketMesh);
 
     // Add multiple rocket exhaust points
