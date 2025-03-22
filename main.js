@@ -2655,6 +2655,9 @@ function createMountain(position, height, color) {
     mountain.position.copy(position);
     mountain.castShadow = true;
     mountain.receiveShadow = true;
+    
+    // Set scale to 0 to make mountain invisible
+    mountain.scale.set(0, 0, 0);
 
     // Add debug visual helper
     if (window.location.search.includes('debug=true')) {
@@ -2813,12 +2816,35 @@ function updateWorld() {
         mountain.position.x += Math.sin(gameState.time * 0.0005) * parallaxSpeed * 0.2;
     });
     
+    // Update palm trees
+    if (gameState.scenery && gameState.scenery.trees) {
     gameState.scenery.trees.forEach(tree => {
-        // Make trees sway gently
-        const swayAmount = 0.02;
-        const swaySpeed = 0.001;
-        tree.rotation.z = Math.sin(gameState.time * swaySpeed + tree.position.x) * swayAmount;
-    });
+            if (!tree.visible || !tree.userData || tree.userData.type !== 'palm_tree') return;
+            
+            const time = gameState.time * 0.001;
+            const swaySpeed = tree.userData.swaySpeed || 0.5;
+            const swayOffset = tree.userData.swayOffset || 0;
+            
+            // Gentle overall tree sway
+            if (tree.userData.trunk) {
+                const swayAmount = 0.05;
+                tree.userData.trunk.rotation.x = Math.sin(time * swaySpeed + swayOffset) * swayAmount;
+                tree.userData.trunk.rotation.z = Math.cos(time * swaySpeed + swayOffset) * swayAmount;
+            }
+            
+            // Animate individual fronds if they exist
+            if (tree.userData.fronds && tree.userData.fronds.length > 0) {
+                tree.userData.fronds.forEach((frond, index) => {
+                    const frondOffset = swayOffset + index * 0.5;
+                    const frondSpeed = swaySpeed * (1 + index * 0.1);
+                    const frondAmount = 0.1;
+                    
+                    frond.rotation.x += Math.sin(time * frondSpeed + frondOffset) * frondAmount * 0.05;
+                    frond.rotation.z += Math.cos(time * frondSpeed + frondOffset) * frondAmount * 0.05;
+                });
+            }
+        });
+    }
     
     // Update birds
     gameState.birds.forEach(bird => {
@@ -3079,9 +3105,9 @@ function createFox() {
         }
         
         console.log('Fox model loaded successfully:', {
-            type: fox.userData.type,
-            health: fox.userData.health,
-            interval: fox.userData.shootInterval,
+        type: fox.userData.type,
+        health: fox.userData.health,
+        interval: fox.userData.shootInterval,
             speed: fox.userData.moveSpeed
         });
     }, undefined, (error) => {
@@ -4315,85 +4341,89 @@ function updatePterosaurs() {
 
 // Create palm tree function
 function createPalmTree(height = 4) {
-    const palm = new THREE.Group();
-
-    // Create trunk with curve
-    const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.3, height, 8);
-    const trunkMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x8B4513,
-        roughness: 0.8,
-        metalness: 0.1
-    });
-    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+    console.log('Creating new palm tree...');
     
-    // Add curve to trunk
-    const trunkVertices = trunk.geometry.attributes.position;
-    for (let i = 0; i < trunkVertices.count; i++) {
-        const y = trunkVertices.getY(i);
-        const bendAmount = (y / height) * 0.5;
-        trunkVertices.setX(i, trunkVertices.getX(i) + bendAmount);
-    }
-    trunk.geometry.computeVertexNormals();
-    palm.add(trunk);
-
-    // Create fronds
-    const numFronds = 5 + Math.floor(Math.random() * 4);
-    const frondMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x2E8B57,
-        roughness: 0.7,
-        metalness: 0.1,
-        side: THREE.DoubleSide
-    });
+    // Create a temporary cylinder as placeholder while model loads
+    const tempGeometry = new THREE.CylinderGeometry(0.2, 0.3, height, 8);
+    const tempMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
+    const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
+    tempMesh.visible = false;
     
-    for (let i = 0; i < numFronds; i++) {
-        const frondGeometry = new THREE.PlaneGeometry(2, 1, 2, 4);
-        const frond = new THREE.Mesh(frondGeometry, frondMaterial);
+    // Add properties for animation
+    tempMesh.userData.type = 'palm_tree';
+    tempMesh.userData.swayOffset = Math.random() * Math.PI * 2;
+    tempMesh.userData.swaySpeed = 0.5 + Math.random() * 0.5;
+    tempMesh.userData.baseScale = 0.4 + Math.random() * 0.2;
+    
+    // Load the palm tree model
+    const loader = new GLTFLoader();
+    loader.load('assets/models/palm_tree.glb', (gltf) => {
+        const palm = gltf.scene;
         
-        // Add curve to fronds
-        const frondVertices = frond.geometry.attributes.position;
-        for (let j = 0; j < frondVertices.count; j++) {
-            const x = frondVertices.getX(j);
-            const bendAmount = (x * x) * 0.1;
-            frondVertices.setZ(j, frondVertices.getZ(j) + bendAmount);
-        }
-        frond.geometry.computeVertexNormals();
+        // Scale and position the palm tree
+        const scale = tempMesh.userData.baseScale;
+        palm.scale.set(scale, scale, scale);
+        palm.position.copy(tempMesh.position);
+        palm.rotation.y = Math.random() * Math.PI * 2; // Random rotation
         
-        frond.position.y = height - 0.2;
-        frond.rotation.x = -Math.PI / 4;
-        frond.rotation.y = (i / numFronds) * Math.PI * 2;
-        frond.rotation.z = Math.random() * Math.PI / 6;
-        palm.add(frond);
-    }
-
-    // Add coconuts
-    const numCoconuts = 2 + Math.floor(Math.random() * 3);
-    const coconutMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x654321,
-        roughness: 0.6,
-        metalness: 0.2
-    });
-    
-    for (let i = 0; i < numCoconuts; i++) {
-        const coconutGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-        const coconut = new THREE.Mesh(coconutGeometry, coconutMaterial);
-        const angle = (i / numCoconuts) * Math.PI * 2;
-        coconut.position.set(
-            Math.cos(angle) * 0.4,
-            height - 0.5,
-            Math.sin(angle) * 0.4
-        );
-        palm.add(coconut);
-    }
-
-    // Enable shadows
-    palm.traverse(child => {
-        if (child instanceof THREE.Mesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
+        // Enable shadows
+        palm.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                
+                // Enhance materials
+                if (child.material) {
+                    // Trunk material
+                    if (child.material.name.includes('trunk') || child.material.name.includes('bark')) {
+                        child.material.roughness = 0.8;
+                        child.material.metalness = 0.1;
+                    }
+                    // Leaf material
+                    else if (child.material.name.includes('leaf') || child.material.name.includes('frond')) {
+                        child.material.roughness = 0.6;
+                        child.material.metalness = 0.1;
+                        child.material.side = THREE.DoubleSide;
+                    }
+                }
+            }
+        });
+        
+        // Replace temp mesh with palm tree model
+        if (tempMesh.parent) {
+            tempMesh.parent.add(palm);
+            tempMesh.parent.remove(tempMesh);
+            
+            // Transfer properties for animation
+            palm.userData = { ...tempMesh.userData };
+            
+            // Find and store references to animated parts if they exist
+            palm.userData.trunk = palm.getObjectByName('trunk') || palm;
+            palm.userData.fronds = [];
+            palm.traverse((child) => {
+                if (child.isMesh && (child.name.includes('leaf') || child.name.includes('frond'))) {
+                    palm.userData.fronds.push(child);
+                }
+            });
         }
+        
+        // Add to scenery trees array for animation
+        if (gameState.scenery && gameState.scenery.trees) {
+            const index = gameState.scenery.trees.indexOf(tempMesh);
+            if (index !== -1) {
+                gameState.scenery.trees[index] = palm;
+            } else {
+                gameState.scenery.trees.push(palm);
+            }
+        }
+        
+        console.log('Palm tree model loaded successfully');
+    }, undefined, (error) => {
+        console.error('Error loading palm tree model:', error);
+        tempMesh.visible = true;
     });
 
-    return palm;
+    return tempMesh;
 }
 
 function animate() {
