@@ -3024,75 +3024,73 @@ const isOnGround = Math.abs(hamster.position.y - terrainManager.getHeight(hamste
 // Create fox enemy
 function createFox() {
     console.log('Creating new fox...');
-    const fox = new THREE.Group();
     
-    // Body - Made larger and more visible
-    const bodyGeometry = new THREE.BoxGeometry(1.5, 1, 2);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xff3300,  // Brighter orange
-        emissive: 0xff3300,
-        emissiveIntensity: 0.3
+    // Create a temporary cube as placeholder while model loads
+    const tempGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const tempMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+    const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
+    tempMesh.visible = false;
+    
+    // Add game properties to the temp mesh
+    tempMesh.userData.type = 'fox';
+    tempMesh.userData.health = 1;
+    tempMesh.userData.shootTimer = 0;
+    tempMesh.userData.shootInterval = 1.5;
+    tempMesh.userData.moveSpeed = 7.5;
+    tempMesh.userData.state = 'chase';
+    tempMesh.userData.chaseDistance = 50;
+    tempMesh.userData.retreatDistance = 12;
+    
+    // Load the fox model
+    const loader = new GLTFLoader();
+    loader.load('assets/models/fox.glb', (gltf) => {
+        const fox = gltf.scene;
+        
+        // Scale and position the fox
+        fox.scale.set(0.4, 0.4, 0.4);
+        fox.position.copy(tempMesh.position);
+        fox.rotation.y = tempMesh.rotation.y;
+        
+        // Enable shadows
+        fox.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                
+                // Add emissive glow to the fox's materials
+                if (child.material) {
+                    child.material.emissive = new THREE.Color(0xff3300);
+                    child.material.emissiveIntensity = 0.3;
+                }
+            }
+        });
+        
+        // Replace temp mesh with fox model in the scene and gameState
+        if (tempMesh.parent) {
+            const index = gameState.enemies.indexOf(tempMesh);
+            if (index !== -1) {
+                gameState.enemies[index] = fox;
+            }
+            tempMesh.parent.add(fox);
+            tempMesh.parent.remove(tempMesh);
+            
+            // Transfer the game properties to the model
+            fox.userData = { ...tempMesh.userData };
+        }
+        
+        console.log('Fox model loaded successfully:', {
+            type: fox.userData.type,
+            health: fox.userData.health,
+            interval: fox.userData.shootInterval,
+            speed: fox.userData.moveSpeed
+        });
+    }, undefined, (error) => {
+        console.error('Error loading fox model:', error);
+        // If model fails to load, make temp mesh visible as fallback
+        tempMesh.visible = true;
     });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    fox.add(body);
-    
-    // Head - Made larger
-    const headGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-    const headMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xff3300,
-        emissive: 0xff3300,
-        emissiveIntensity: 0.3
-    });
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.z = 1;
-    head.position.y = 0.3;
-    fox.add(head);
-    
-    // Ears - Made more prominent
-    const earGeometry = new THREE.ConeGeometry(0.3, 0.6, 4);
-    const earMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xff3300,
-        emissive: 0xff3300,
-        emissiveIntensity: 0.3
-    });
-    
-    const leftEar = new THREE.Mesh(earGeometry, earMaterial);
-    leftEar.position.set(0.3, 0.8, 1);
-    fox.add(leftEar);
-    
-    const rightEar = new THREE.Mesh(earGeometry, earMaterial);
-    rightEar.position.set(-0.3, 0.8, 1);
-    fox.add(rightEar);
-    
-    // Add glow effect
-    const glowGeometry = new THREE.BoxGeometry(1.7, 1.2, 2.2);
-    const glowMaterial = new THREE.MeshBasicMaterial({
-        color: 0xff3300,
-        transparent: true,
-        opacity: 0.3
-    });
-    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-    fox.add(glow);
-    
-    // Less aggressive properties
-    fox.userData.type = 'fox';
-    fox.userData.health = 1; // One hit to destroy
-    fox.userData.shootTimer = 0;
-    fox.userData.shootInterval = 1.5; // Reduced from 2 (25% faster shooting)
-    fox.userData.moveSpeed = 7.5; // Increased from 6 (25% faster movement)
-    fox.userData.state = 'chase';
-    fox.userData.chaseDistance = 50; // Increased from 40 (25% more aggressive chase range)
-    fox.userData.retreatDistance = 12; // Reduced from 15 (stays closer before retreating)
-    
-    console.log('Fox created successfully:', {
-        type: fox.userData.type,
-        health: fox.userData.health,
-        interval: fox.userData.shootInterval,
-        speed: fox.userData.moveSpeed,
-        children: fox.children.length
-    });
-    
-    return fox;
+
+    return tempMesh;
 }
 
 // Create fox bullet
@@ -3836,147 +3834,146 @@ function initScene() {
 // Create T-Rex enemy
 function createTRex() {
     console.log('Creating new T-Rex...');
-    const trex = new THREE.Group();
     
-    // Body - Larger than fox
-    const bodyGeometry = new THREE.BoxGeometry(2.5, 2, 3);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x556B2F,  // Dark olive green
-        roughness: 0.8,
-        metalness: 0.2
+    // Create a temporary cube as placeholder while model loads
+    const tempGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const tempMaterial = new THREE.MeshPhongMaterial({ color: 0x556B2F });
+    const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
+    tempMesh.visible = false;
+    
+    // Add T-Rex properties
+    tempMesh.userData.type = 'trex';
+    tempMesh.userData.health = 3; // Takes 3 hits to destroy
+    tempMesh.userData.shootTimer = 0;
+    tempMesh.userData.shootInterval = 2.5;
+    tempMesh.userData.moveSpeed = 9; // Faster than fox
+    tempMesh.userData.state = 'chase';
+    tempMesh.userData.chaseDistance = 60; // Longer chase range
+    tempMesh.userData.retreatDistance = 5; // Rarely retreats
+    tempMesh.userData.damage = 25; // High damage
+    
+    // Load the T-Rex model
+    const loader = new GLTFLoader();
+    loader.load('assets/models/trex.glb', (gltf) => {
+        const trex = gltf.scene;
+        
+        // Scale and position the T-Rex
+        trex.scale.set(0.6, 0.6, 0.6); // Larger than fox
+        trex.position.copy(tempMesh.position);
+        trex.rotation.y = tempMesh.rotation.y;
+        
+        // Enable shadows and add glow effect
+        trex.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                
+                // Add slight emissive glow to materials
+                if (child.material) {
+                    child.material.emissive = new THREE.Color(0x556B2F);
+                    child.material.emissiveIntensity = 0.2;
+                }
+            }
+        });
+        
+        // Replace temp mesh with T-Rex model in the scene and gameState
+        if (tempMesh.parent) {
+            const index = gameState.enemies.indexOf(tempMesh);
+            if (index !== -1) {
+                gameState.enemies[index] = trex;
+            }
+            tempMesh.parent.add(trex);
+            tempMesh.parent.remove(tempMesh);
+            
+            // Transfer the game properties to the model
+            trex.userData = { ...tempMesh.userData };
+        }
+        
+        console.log('T-Rex model loaded successfully:', {
+            type: trex.userData.type,
+            health: trex.userData.health,
+            interval: trex.userData.shootInterval,
+            speed: trex.userData.moveSpeed
+        });
+    }, undefined, (error) => {
+        console.error('Error loading T-Rex model:', error);
+        // If model fails to load, make temp mesh visible as fallback
+        tempMesh.visible = true;
     });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    trex.add(body);
-    
-    // Head - Distinctive T-Rex shape
-    const headGeometry = new THREE.BoxGeometry(1.2, 1.5, 2);
-    const head = new THREE.Mesh(headGeometry, bodyMaterial);
-    head.position.set(0, 1, 1.5);
-    trex.add(head);
-    
-    // Jaw
-    const jawGeometry = new THREE.BoxGeometry(1, 0.5, 1.5);
-    const jaw = new THREE.Mesh(jawGeometry, bodyMaterial);
-    jaw.position.set(0, 0.2, 2);
-    trex.add(jaw);
-    
-    // Tiny arms
-    const armGeometry = new THREE.BoxGeometry(0.4, 0.8, 0.4);
-    const leftArm = new THREE.Mesh(armGeometry, bodyMaterial);
-    leftArm.position.set(1, 0.5, 0.5);
-    trex.add(leftArm);
-    
-    const rightArm = new THREE.Mesh(armGeometry, bodyMaterial);
-    rightArm.position.set(-1, 0.5, 0.5);
-    trex.add(rightArm);
-    
-    // Legs
-    const legGeometry = new THREE.BoxGeometry(0.6, 2, 0.6);
-    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    leftLeg.position.set(0.8, -1, -0.5);
-    trex.add(leftLeg);
-    
-    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    rightLeg.position.set(-0.8, -1, -0.5);
-    trex.add(rightLeg);
-    
-    // Tail
-    const tailGeometry = new THREE.BoxGeometry(0.8, 0.8, 2);
-    const tail = new THREE.Mesh(tailGeometry, bodyMaterial);
-    tail.position.set(0, 0.5, -2);
-    trex.add(tail);
-    
-    // T-Rex properties - stronger and more aggressive than fox
-    trex.userData.type = 'trex';
-    trex.userData.health = 3; // Takes 3 hits to destroy
-    trex.userData.shootTimer = 0;
-    trex.userData.shootInterval = 2.5; // Slower attacks but more powerful
-    trex.userData.moveSpeed = 9; // Faster than fox
-    trex.userData.state = 'chase';
-    trex.userData.chaseDistance = 60; // Longer chase range
-    trex.userData.retreatDistance = 5; // Rarely retreats
-    trex.userData.damage = 25; // High damage
-    
-    return trex;
+
+    return tempMesh;
 }
 
 // Create Triceratops enemy
 function createTriceratops() {
     console.log('Creating new Triceratops...');
-    const tric = new THREE.Group();
     
-    // Body - Wide and sturdy
-    const bodyGeometry = new THREE.BoxGeometry(3, 2, 4);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x8B4513,  // Saddle brown
-        roughness: 0.7,
-        metalness: 0.3
+    // Create a temporary cube as placeholder while model loads
+    const tempGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const tempMaterial = new THREE.MeshPhongMaterial({ color: 0x4B0082 });
+    const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
+    tempMesh.visible = false;
+    
+    // Add game properties
+    tempMesh.userData.type = 'triceratops';
+    tempMesh.userData.health = 4;
+    tempMesh.userData.shootTimer = 0;
+    tempMesh.userData.shootInterval = 2;
+    tempMesh.userData.moveSpeed = 6;
+    tempMesh.userData.state = 'chase';
+    tempMesh.userData.chaseDistance = 40;
+    tempMesh.userData.retreatDistance = 8;
+    tempMesh.userData.damage = 20;
+    
+    // Load the Triceratops model
+    const loader = new GLTFLoader();
+    loader.load('assets/models/triceratops.glb', (gltf) => {
+        const triceratops = gltf.scene;
+        
+        // Scale and position the triceratops
+        triceratops.scale.set(0.5, 0.5, 0.5);
+        triceratops.position.copy(tempMesh.position);
+        triceratops.rotation.y = tempMesh.rotation.y;
+        
+        // Enable shadows and add glow effect
+        triceratops.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                
+                // Add slight emissive glow
+                if (child.material) {
+                    child.material.emissive = new THREE.Color(0x4B0082);
+                    child.material.emissiveIntensity = 0.2;
+                }
+            }
+        });
+        
+        // Replace temp mesh with triceratops model in scene and gameState
+        if (tempMesh.parent) {
+            const index = gameState.enemies.indexOf(tempMesh);
+            if (index !== -1) {
+                gameState.enemies[index] = triceratops;
+            }
+            tempMesh.parent.add(triceratops);
+            tempMesh.parent.remove(tempMesh);
+            
+            // Transfer the game properties to the model
+            triceratops.userData = { ...tempMesh.userData };
+        }
+        
+        console.log('Triceratops model loaded successfully:', {
+            type: triceratops.userData.type,
+            health: triceratops.userData.health,
+            interval: triceratops.userData.shootInterval,
+            speed: triceratops.userData.moveSpeed
+        });
+    }, undefined, (error) => {
+        console.error('Error loading triceratops model:', error);
+        tempMesh.visible = true;
     });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    tric.add(body);
-    
-    // Head with frill
-    const headGeometry = new THREE.BoxGeometry(2.5, 2, 1.5);
-    const head = new THREE.Mesh(headGeometry, bodyMaterial);
-    head.position.set(0, 0.5, 2);
-    tric.add(head);
-    
-    // Horns
-    const hornGeometry = new THREE.ConeGeometry(0.2, 1.5, 4);
-    const hornMaterial = new THREE.MeshStandardMaterial({
-        color: 0xD2B48C,  // Tan
-        roughness: 0.6,
-        metalness: 0.4
-    });
-    
-    // Front horn
-    const frontHorn = new THREE.Mesh(hornGeometry, hornMaterial);
-    frontHorn.rotation.x = -Math.PI / 4;
-    frontHorn.position.set(0, 1, 3);
-    tric.add(frontHorn);
-    
-    // Side horns
-    const leftHorn = new THREE.Mesh(hornGeometry, hornMaterial);
-    leftHorn.rotation.x = -Math.PI / 6;
-    leftHorn.rotation.z = -Math.PI / 6;
-    leftHorn.position.set(1, 1, 2.5);
-    tric.add(leftHorn);
-    
-    const rightHorn = new THREE.Mesh(hornGeometry, hornMaterial);
-    rightHorn.rotation.x = -Math.PI / 6;
-    rightHorn.rotation.z = Math.PI / 6;
-    rightHorn.position.set(-1, 1, 2.5);
-    tric.add(rightHorn);
-    
-    // Legs
-    const legGeometry = new THREE.BoxGeometry(0.8, 2, 0.8);
-    const legs = [
-        { x: 1.2, z: 1 },    // Front right
-        { x: -1.2, z: 1 },   // Front left
-        { x: 1.2, z: -1 },   // Back right
-        { x: -1.2, z: -1 }   // Back left
-    ];
-    
-    legs.forEach(pos => {
-        const leg = new THREE.Mesh(legGeometry, bodyMaterial);
-        leg.position.set(pos.x, -1, pos.z);
-        tric.add(leg);
-    });
-    
-    // Triceratops properties - defensive tank
-    tric.userData.type = 'triceratops';
-    tric.userData.health = 5; // Very tough
-    tric.userData.shootTimer = 0;
-    tric.userData.shootInterval = 3; // Slow attacks
-    tric.userData.moveSpeed = 5; // Slower but steady
-    tric.userData.state = 'chase';
-    tric.userData.chaseDistance = 40; // Medium range
-    tric.userData.retreatDistance = 8;
-    tric.userData.damage = 15; // Medium damage
-    tric.userData.chargeSpeed = 15; // Special charge attack speed
-    tric.userData.isCharging = false;
-    
-    return tric;
+
+    return tempMesh;
 }
 
 // Create dinosaur projectile
@@ -4131,83 +4128,76 @@ function updateDinosaurs() {
 
 // Create Pterosaur enemy
 function createPterosaur() {
-    console.log('Creating new pterosaur...');
-    const pterosaur = new THREE.Group();
+    console.log('Creating new Pterosaur...');
     
-    // Body - Sleek and aerodynamic
-    const bodyGeometry = new THREE.ConeGeometry(0.5, 2, 4);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x8B008B,  // Dark magenta
-        emissive: 0x8B008B,
-        emissiveIntensity: 0.3
+    // Create a temporary cube as placeholder while model loads
+    const tempGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const tempMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
+    const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
+    tempMesh.visible = false;
+    
+    // Add game properties
+    tempMesh.userData.type = 'pterosaur';
+    tempMesh.userData.health = 2;
+    tempMesh.userData.shootTimer = 0;
+    tempMesh.userData.shootInterval = 3;
+    tempMesh.userData.moveSpeed = 12;
+    tempMesh.userData.state = 'patrol';
+    tempMesh.userData.height = 15; // Flying height
+    tempMesh.userData.damage = 15;
+    tempMesh.userData.patrolRadius = 30;
+    tempMesh.userData.patrolAngle = Math.random() * Math.PI * 2;
+    tempMesh.userData.patrolCenter = new THREE.Vector3();
+    
+    // Load the Pterosaur model
+    const loader = new GLTFLoader();
+    loader.load('assets/models/pterosaur.glb', (gltf) => {
+        const pterosaur = gltf.scene;
+        
+        // Scale and position the pterosaur
+        pterosaur.scale.set(0.5, 0.5, 0.5);
+        pterosaur.position.copy(tempMesh.position);
+        pterosaur.rotation.y = tempMesh.rotation.y;
+        
+        // Enable shadows and add glow effect
+        pterosaur.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                
+                // Add slight emissive glow
+                if (child.material) {
+                    child.material.emissive = new THREE.Color(0x8B4513);
+                    child.material.emissiveIntensity = 0.2;
+                }
+            }
+        });
+        
+        // Replace temp mesh with pterosaur model in scene and gameState
+        if (tempMesh.parent) {
+            const index = gameState.enemies.indexOf(tempMesh);
+            if (index !== -1) {
+                gameState.enemies[index] = pterosaur;
+            }
+            tempMesh.parent.add(pterosaur);
+            tempMesh.parent.remove(tempMesh);
+            
+            // Transfer the game properties to the model
+            pterosaur.userData = { ...tempMesh.userData };
+        }
+        
+        console.log('Pterosaur model loaded successfully:', {
+            type: pterosaur.userData.type,
+            health: pterosaur.userData.health,
+            interval: pterosaur.userData.shootInterval,
+            speed: pterosaur.userData.moveSpeed
+        });
+    }, undefined, (error) => {
+        console.error('Error loading pterosaur model:', error);
+        tempMesh.visible = true;
     });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.rotation.x = -Math.PI / 2; // Horizontal orientation
-    pterosaur.add(body);
-    
-    // Wings - Large and menacing
-    const wingGeometry = new THREE.PlaneGeometry(4, 1);
-    const wingMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x9400D3, // Darker purple
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.9
-    });
-    
-    const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    leftWing.position.set(-1.5, 0, 0);
-    pterosaur.add(leftWing);
-    
-    const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-    rightWing.position.set(1.5, 0, 0);
-    pterosaur.add(rightWing);
-    
-    // Head with crest
-    const headGeometry = new THREE.ConeGeometry(0.3, 1, 4);
-    const head = new THREE.Mesh(headGeometry, bodyMaterial);
-    head.position.set(0, 0, 1);
-    head.rotation.x = -Math.PI / 4;
-    pterosaur.add(head);
-    
-    // Crest
-    const crestGeometry = new THREE.ConeGeometry(0.2, 1, 3);
-    const crest = new THREE.Mesh(crestGeometry, wingMaterial);
-    crest.position.set(0, 0.5, 1);
-    crest.rotation.x = Math.PI / 3;
-    pterosaur.add(crest);
-    
-    // Add glow effect
-    const glowGeometry = new THREE.SphereGeometry(1.5, 8, 8);
-    const glowMaterial = new THREE.MeshBasicMaterial({
-        color: 0x9400D3,
-        transparent: true,
-        opacity: 0.2
-    });
-    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-    pterosaur.add(glow);
-    
-    // Pterosaur properties
-    pterosaur.userData.type = 'pterosaur';
-    pterosaur.userData.health = 2; // Takes 2 hits to destroy
-    pterosaur.userData.shootTimer = 0;
-    pterosaur.userData.shootInterval = 2; // Shoots every 2 seconds
-    pterosaur.userData.moveSpeed = 12; // Fast in the air
-    pterosaur.userData.state = 'circle'; // States: circle, dive, retreat
-    pterosaur.userData.height = 15; // Default flying height
-    pterosaur.userData.circleRadius = 20; // Radius when circling
-    pterosaur.userData.circleAngle = Math.random() * Math.PI * 2; // Starting angle
-    pterosaur.userData.wingAngle = 0; // For wing flapping
-    pterosaur.userData.diveTimer = 0; // Time spent in dive state
-    pterosaur.userData.damage = 15; // Damage on collision
-    
-    console.log('Pterosaur created successfully:', {
-        type: pterosaur.userData.type,
-        health: pterosaur.userData.health,
-        interval: pterosaur.userData.shootInterval,
-        speed: pterosaur.userData.moveSpeed
-    });
-    
-    return pterosaur;
+
+    return tempMesh;
 }
 
 // Create pterosaur projectile (energy blast)
@@ -4245,14 +4235,21 @@ function updatePterosaurs() {
         const pterosaur = gameState.enemies[i];
         if (pterosaur.userData.type !== 'pterosaur') continue;
         
+        // Skip if the model hasn't loaded yet (temporary mesh)
+        if (!pterosaur.visible) continue;
+        
         // Update shoot timer
         pterosaur.userData.shootTimer += gameState.deltaTime;
         
-        // Update wing animation
-        pterosaur.userData.wingAngle += gameState.deltaTime * 5;
-        const wingFlap = Math.sin(pterosaur.userData.wingAngle) * 0.5;
-        pterosaur.children[1].rotation.z = wingFlap; // Left wing
-        pterosaur.children[2].rotation.z = -wingFlap; // Right wing
+        // Update patrol behavior
+        pterosaur.userData.patrolAngle += gameState.deltaTime;
+        const patrolX = pterosaur.userData.patrolCenter.x + Math.cos(pterosaur.userData.patrolAngle) * pterosaur.userData.patrolRadius;
+        const patrolZ = pterosaur.userData.patrolCenter.z + Math.sin(pterosaur.userData.patrolAngle) * pterosaur.userData.patrolRadius;
+        
+        // Smoothly move to patrol position
+        pterosaur.position.x += (patrolX - pterosaur.position.x) * 0.1;
+        pterosaur.position.z += (patrolZ - pterosaur.position.z) * 0.1;
+        pterosaur.position.y = pterosaur.userData.height;
         
         // Calculate distance to player
         const distanceToPlayer = pterosaur.position.distanceTo(hamster.position);
@@ -4290,56 +4287,13 @@ function updatePterosaurs() {
             }
         }
         
-        // State machine for pterosaur behavior
-        switch (pterosaur.userData.state) {
-            case 'circle':
-                // Circle around the player
-                pterosaur.userData.circleAngle += gameState.deltaTime;
-                const circleX = hamster.position.x + Math.cos(pterosaur.userData.circleAngle) * pterosaur.userData.circleRadius;
-                const circleZ = hamster.position.z + Math.sin(pterosaur.userData.circleAngle) * pterosaur.userData.circleRadius;
-                pterosaur.position.x = circleX;
-                pterosaur.position.z = circleZ;
-                pterosaur.position.y = pterosaur.userData.height;
-                
-                // Randomly enter dive state
-                if (Math.random() < 0.01) {
-                    pterosaur.userData.state = 'dive';
-                    pterosaur.userData.diveTimer = 0;
-                }
-                break;
-                
-            case 'dive':
-                // Dive attack towards player
-                const diveDirection = new THREE.Vector3()
-                    .subVectors(hamster.position, pterosaur.position)
-                    .normalize();
-                    
-                pterosaur.position.add(diveDirection.multiplyScalar(pterosaur.userData.moveSpeed * 1.5 * gameState.deltaTime));
-                
-                // Check for collision with player
-                if (distanceToPlayer < 2) {
-                    takeDamage(pterosaur.userData.damage);
-                    pterosaur.userData.state = 'retreat';
-                }
-                
-                // Return to circling after a while
-                pterosaur.userData.diveTimer += gameState.deltaTime;
-                if (pterosaur.userData.diveTimer > 2) {
-                    pterosaur.userData.state = 'circle';
-                }
-                break;
-                
-            case 'retreat':
-                // Quickly fly back to circling height
-                pterosaur.position.y += pterosaur.userData.moveSpeed * gameState.deltaTime;
-                if (pterosaur.position.y >= pterosaur.userData.height) {
-                    pterosaur.userData.state = 'circle';
-                }
-                break;
-        }
-        
         // Always face the direction of movement
-        pterosaur.lookAt(hamster.position);
+        const targetPosition = new THREE.Vector3(
+            patrolX,
+            pterosaur.position.y,
+            patrolZ
+        );
+        pterosaur.lookAt(targetPosition);
         
         // Shooting logic
         if (pterosaur.userData.shootTimer >= pterosaur.userData.shootInterval) {
