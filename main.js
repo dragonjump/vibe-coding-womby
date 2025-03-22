@@ -631,6 +631,63 @@ const menuDirectionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
 menuDirectionalLight.position.set(5, 10, 5);
 menuScene.add(menuDirectionalLight);
 
+// Create palm trees
+const palmTrees = [];
+for (let i = 0; i < 5; i++) {
+    const palm = new THREE.Group();
+    
+    // Create trunk
+    const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.3, 4, 8);
+    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+    trunk.position.y = 2;
+    palm.add(trunk);
+
+    // Create leaves
+    const numLeaves = 5 + Math.floor(Math.random() * 4);
+    const leafMaterial = new THREE.MeshStandardMaterial({ color: 0x2E8B57 });
+    
+    for (let j = 0; j < numLeaves; j++) {
+        const leafGeometry = new THREE.PlaneGeometry(2, 1);
+        const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+        leaf.position.y = 4;
+        leaf.rotation.x = -Math.PI / 4;
+        leaf.rotation.y = (j / numLeaves) * Math.PI * 2;
+        leaf.rotation.z = Math.random() * Math.PI / 6;
+        palm.add(leaf);
+    }
+
+    // Add coconuts
+    const numCoconuts = 2 + Math.floor(Math.random() * 3);
+    const coconutMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
+    
+    for (let j = 0; j < numCoconuts; j++) {
+        const coconutGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+        const coconut = new THREE.Mesh(coconutGeometry, coconutMaterial);
+        const angle = (j / numCoconuts) * Math.PI * 2;
+        coconut.position.set(
+            Math.cos(angle) * 0.4,
+            3.8,
+            Math.sin(angle) * 0.4
+        );
+        palm.add(coconut);
+    }
+
+    // Position the palm tree
+    const angle = (i / 5) * Math.PI * 2;
+    const radius = 8 + Math.random() * 4;
+    palm.position.set(
+        Math.cos(angle) * radius,
+        0,
+        Math.sin(angle) * radius - 5
+    );
+    palm.rotation.y = Math.random() * Math.PI * 2;
+    palm.scale.setScalar(0.8 + Math.random() * 0.4);
+    
+    menuScene.add(palm);
+    palmTrees.push(palm);
+}
+
 // Create floating hamster for menu
 const menuHamster = createHamster();
 menuHamster.position.set(0, 2, -5);
@@ -704,6 +761,15 @@ function animateMenu(time) {
         // Animate button wombat with hopping motion
         buttonWombat.position.y = 1 + Math.abs(Math.sin((time * 0.003) + buttonWombat.userData.hopOffset)) * 0.5;
         buttonWombat.rotation.x = Math.sin((time * 0.003) + buttonWombat.userData.hopOffset) * 0.1;
+
+        // Animate palm trees
+        palmTrees.forEach((palm, index) => {
+            palm.rotation.x = Math.sin((time * 0.001) + index) * 0.05;
+            const leaves = palm.children.slice(1, -2); // Get only the leaf meshes
+            leaves.forEach((leaf, leafIndex) => {
+                leaf.rotation.z = Math.sin((time * 0.002) + index + leafIndex) * 0.1 + Math.PI / 6;
+            });
+        });
 
         // Animate clouds
         menuScene.children.forEach(child => {
@@ -1897,6 +1963,49 @@ function initializeLevelElements(level) {
             
             const mountain = createMountain(position, height, level.environment.mountainColor);
             scene.add(mountain);
+        }
+    }
+
+    // Add mountains and palm trees for all levels
+    const mountainCount = level.environment.mountainCount || 12;
+    const mountainRadius = level.environment.mountainRadius || 120;
+    const mountainColor = level.environment.mountainColor || 0xFFFFFF;
+    const { min: minHeight, max: maxHeight } = level.environment.mountainHeightRange || { min: 20, max: 45 };
+
+    for (let i = 0; i < mountainCount; i++) {
+        const angle = (i / mountainCount) * Math.PI * 2;
+        const radius = mountainRadius + (Math.random() - 0.5) * 20;
+        const position = new THREE.Vector3(
+            Math.cos(angle) * radius,
+            0,
+            Math.sin(angle) * radius
+        );
+        
+        const height = THREE.MathUtils.randFloat(minHeight, maxHeight);
+        const mountain = createMountain(position, height, mountainColor);
+        scene.add(mountain);
+
+        // Add palm trees near each mountain
+        const numPalms = 2 + Math.floor(Math.random() * 3);
+        for (let j = 0; j < numPalms; j++) {
+            const palmAngle = angle + (Math.random() - 0.5) * 0.5;
+            const palmRadius = radius - 10 + Math.random() * 20;
+            const palmPosition = new THREE.Vector3(
+                Math.cos(palmAngle) * palmRadius,
+                0,
+                Math.sin(palmAngle) * palmRadius
+            );
+            
+            const palm = createPalmTree(3 + Math.random() * 2);
+            palm.position.copy(palmPosition);
+            palm.rotation.y = Math.random() * Math.PI * 2;
+            palm.scale.setScalar(0.8 + Math.random() * 0.4);
+            
+            // Store palm tree for animation
+            if (!gameState.scenery.trees) gameState.scenery.trees = [];
+            gameState.scenery.trees.push(palm);
+            
+            scene.add(palm);
         }
     }
 }
@@ -4248,4 +4357,112 @@ function updatePterosaurs() {
             playSound('shoot');
         }
     }
+}
+
+// Create palm tree function
+function createPalmTree(height = 4) {
+    const palm = new THREE.Group();
+
+    // Create trunk with curve
+    const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.3, height, 8);
+    const trunkMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x8B4513,
+        roughness: 0.8,
+        metalness: 0.1
+    });
+    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+    
+    // Add curve to trunk
+    const trunkVertices = trunk.geometry.attributes.position;
+    for (let i = 0; i < trunkVertices.count; i++) {
+        const y = trunkVertices.getY(i);
+        const bendAmount = (y / height) * 0.5;
+        trunkVertices.setX(i, trunkVertices.getX(i) + bendAmount);
+    }
+    trunk.geometry.computeVertexNormals();
+    palm.add(trunk);
+
+    // Create fronds
+    const numFronds = 5 + Math.floor(Math.random() * 4);
+    const frondMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x2E8B57,
+        roughness: 0.7,
+        metalness: 0.1,
+        side: THREE.DoubleSide
+    });
+    
+    for (let i = 0; i < numFronds; i++) {
+        const frondGeometry = new THREE.PlaneGeometry(2, 1, 2, 4);
+        const frond = new THREE.Mesh(frondGeometry, frondMaterial);
+        
+        // Add curve to fronds
+        const frondVertices = frond.geometry.attributes.position;
+        for (let j = 0; j < frondVertices.count; j++) {
+            const x = frondVertices.getX(j);
+            const bendAmount = (x * x) * 0.1;
+            frondVertices.setZ(j, frondVertices.getZ(j) + bendAmount);
+        }
+        frond.geometry.computeVertexNormals();
+        
+        frond.position.y = height - 0.2;
+        frond.rotation.x = -Math.PI / 4;
+        frond.rotation.y = (i / numFronds) * Math.PI * 2;
+        frond.rotation.z = Math.random() * Math.PI / 6;
+        palm.add(frond);
+    }
+
+    // Add coconuts
+    const numCoconuts = 2 + Math.floor(Math.random() * 3);
+    const coconutMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x654321,
+        roughness: 0.6,
+        metalness: 0.2
+    });
+    
+    for (let i = 0; i < numCoconuts; i++) {
+        const coconutGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+        const coconut = new THREE.Mesh(coconutGeometry, coconutMaterial);
+        const angle = (i / numCoconuts) * Math.PI * 2;
+        coconut.position.set(
+            Math.cos(angle) * 0.4,
+            height - 0.5,
+            Math.sin(angle) * 0.4
+        );
+        palm.add(coconut);
+    }
+
+    // Enable shadows
+    palm.traverse(child => {
+        if (child instanceof THREE.Mesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+        }
+    });
+
+    return palm;
+}
+
+function animate() {
+    // ... existing animation code ...
+
+    // Animate palm trees
+    if (gameState.scenery.trees) {
+        gameState.scenery.trees.forEach((palm, index) => {
+            const time = performance.now() * 0.001;
+            const offset = index * 0.5;
+            
+            // Gentle swaying motion
+            palm.rotation.x = Math.sin(time + offset) * 0.05;
+            palm.rotation.z = Math.cos(time + offset) * 0.08;
+            
+            // Animate fronds independently
+            palm.children.forEach((child, childIndex) => {
+                if (child.geometry instanceof THREE.PlaneGeometry) {
+                    child.rotation.z = Math.sin(time * 1.2 + offset + childIndex) * 0.1;
+                }
+            });
+        });
+    }
+
+    // ... rest of animation code ...
 }

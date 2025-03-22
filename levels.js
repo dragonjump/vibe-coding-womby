@@ -25,7 +25,11 @@ export const LEVELS = [
         environment: {
             groundColor: 0x90EE90, // Light green
             skyColor: 0x87CEEB,    // Light blue
-            fogDensity: 0
+            fogDensity: 0,
+            mountainColor: 0x228B22, // Forest green mountains
+            mountainCount: 12,
+            mountainRadius: 120,
+            mountainHeightRange: { min: 15, max: 30 }
         }
     },
     {
@@ -55,7 +59,11 @@ export const LEVELS = [
         environment: {
             groundColor: 0xADD8E6, // Light blue
             skyColor: 0x4682B4,    // Darker blue
-            fogDensity: 0.01
+            fogDensity: 0.01,
+            mountainColor: 0x87CEEB, // Sky blue mountains
+            mountainCount: 15,
+            mountainRadius: 140,
+            mountainHeightRange: { min: 25, max: 40 }
         }
     },
     {
