@@ -636,6 +636,13 @@ const menuHamster = createHamster();
 menuHamster.position.set(0, 2, -5);
 menuScene.add(menuHamster);
 
+// Create second wombat that faces the camera
+const buttonWombat = createHamster();
+buttonWombat.position.set(3, 1, -3); // Position beside where the start button will appear
+buttonWombat.rotation.y = Math.PI; // Make it face the camera
+buttonWombat.userData.hopOffset = Math.random() * Math.PI * 2; // Random hop offset
+menuScene.add(buttonWombat);
+
 // Add some floating clouds in the background
 for (let i = 0; i < 10; i++) {
     const cloud = new THREE.Group();
@@ -690,9 +697,13 @@ for (let i = 0; i < 5; i++) {
 // Menu animation loop
 function animateMenu(time) {
     if (gameState.state === 'start') {
-        // Animate hamster
+        // Animate first hamster
         menuHamster.rotation.y = Math.sin(time * 0.001) * 0.2;
         menuHamster.position.y = 2 + Math.sin(time * 0.002) * 0.3;
+
+        // Animate button wombat with hopping motion
+        buttonWombat.position.y = 1 + Math.abs(Math.sin((time * 0.003) + buttonWombat.userData.hopOffset)) * 0.5;
+        buttonWombat.rotation.x = Math.sin((time * 0.003) + buttonWombat.userData.hopOffset) * 0.1;
 
         // Animate clouds
         menuScene.children.forEach(child => {
