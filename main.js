@@ -227,8 +227,8 @@ const gltfLoader = new GLTFLoader();
 function createSeed() {
     const seedGeometry = new THREE.SphereGeometry(0.2, 8, 8); // Made seed bigger
     const seedMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x8B4513,
-        emissive: 0x4B2006, // Added glow
+        color: 0xff0000, // Changed from 0x8B4513 to red
+        emissive: 0xff0000, // Changed from 0x4B2006 to red
         emissiveIntensity: 0.5
     });
     const seed = new THREE.Mesh(seedGeometry, seedMaterial);
@@ -236,7 +236,7 @@ function createSeed() {
     // Add trail effect
     const trailGeometry = new THREE.SphereGeometry(0.1, 8, 8);
     const trailMaterial = new THREE.MeshBasicMaterial({
-        color: 0xA52A2A,
+        color: 0xff4444, // Changed from 0xA52A2A to light red
         transparent: true,
         opacity: 0.6
     });
@@ -1986,7 +1986,7 @@ function initializeLevelElements(level) {
         scene.add(mountain);
 
         // Add palm trees near each mountain
-        const numPalms = 2 + Math.floor(Math.random() * 3);
+        const numPalms = 1 + Math.floor(Math.random() * 2); // Reduced from 2-4 to 1-2 trees
         for (let j = 0; j < numPalms; j++) {
             const palmAngle = angle + (Math.random() - 0.5) * 0.5;
             const palmRadius = radius - 10 + Math.random() * 20;
@@ -3062,7 +3062,7 @@ function createFox() {
     tempMesh.userData.health = 1;
     tempMesh.userData.shootTimer = 0;
     tempMesh.userData.shootInterval = 1.5;
-    tempMesh.userData.moveSpeed = 7.5;
+    tempMesh.userData.moveSpeed = 5; // Reduced from 7.5
     tempMesh.userData.state = 'chase';
     tempMesh.userData.chaseDistance = 50;
     tempMesh.userData.retreatDistance = 12;
@@ -3872,7 +3872,7 @@ function createTRex() {
     tempMesh.userData.health = 3; // Takes 3 hits to destroy
     tempMesh.userData.shootTimer = 0;
     tempMesh.userData.shootInterval = 2.5;
-    tempMesh.userData.moveSpeed = 9; // Faster than fox
+    tempMesh.userData.moveSpeed = 6; // Reduced from 9 for T-Rex
     tempMesh.userData.state = 'chase';
     tempMesh.userData.chaseDistance = 60; // Longer chase range
     tempMesh.userData.retreatDistance = 5; // Rarely retreats
@@ -3945,7 +3945,7 @@ function createTriceratops() {
     tempMesh.userData.health = 4;
     tempMesh.userData.shootTimer = 0;
     tempMesh.userData.shootInterval = 2;
-    tempMesh.userData.moveSpeed = 6;
+    tempMesh.userData.moveSpeed = 4; // Reduced from 6 for Triceratops
     tempMesh.userData.state = 'chase';
     tempMesh.userData.chaseDistance = 40;
     tempMesh.userData.retreatDistance = 8;
@@ -4167,7 +4167,7 @@ function createPterosaur() {
     tempMesh.userData.health = 2;
     tempMesh.userData.shootTimer = 0;
     tempMesh.userData.shootInterval = 3;
-    tempMesh.userData.moveSpeed = 12;
+    tempMesh.userData.moveSpeed = 8; // Reduced from 12 for Pterosaur
     tempMesh.userData.state = 'patrol';
     tempMesh.userData.height = 15; // Flying height
     tempMesh.userData.damage = 15;
