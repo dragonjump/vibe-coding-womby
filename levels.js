@@ -5,7 +5,7 @@ export const LEVELS = [
         urlName: "training",
         name: "Training Grounds",
         description: "Learn the basics of rocket jumping and seed shooting",
-        targetScore: 500,
+        targetScore: 1000,
         collectibles: {
             count: 10,
             pattern: "circle",
@@ -37,7 +37,7 @@ export const LEVELS = [
         urlName: "cloud",
         name: "Cloud City",
         description: "Navigate through floating platforms in the sky",
-        targetScore: 1000,
+        targetScore: 2000,
         collectibles: {
             count: 15,
             pattern: "spiral",
@@ -71,7 +71,7 @@ export const LEVELS = [
         urlName: "sunset",
         name: "Sunset Challenge",
         description: "Master your skills in a challenging sunset arena",
-        targetScore: 1500,
+        targetScore: 3000,
         collectibles: {
             count: 20,
             pattern: "wave",

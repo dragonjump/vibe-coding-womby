@@ -2797,6 +2797,54 @@ function createTree(x, z) {
     return tree;
 }
 
+// Create rock1 for scenery
+function createRock1(x, z) {
+    const rock = new THREE.Group();
+    
+    // Load the rock1 model
+    const loader = new GLTFLoader();
+    loader.load('assets/models/rock1.glb', (gltf) => {
+        const rockModel = gltf.scene;
+        rockModel.scale.set(0.5, 0.5, 0.5);
+        rockModel.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                child.material.roughness = 0.8;
+            }
+        });
+        rock.add(rockModel);
+    });
+    
+    rock.position.set(x, 0, z);
+    rock.userData.type = 'rock1';
+    return rock;
+}
+
+// Create rock2 for scenery
+function createRock2(x, z) {
+    const rock = new THREE.Group();
+    
+    // Load the rock2 model
+    const loader = new GLTFLoader();
+    loader.load('assets/models/rock2.glb', (gltf) => {
+        const rockModel = gltf.scene;
+        rockModel.scale.set(0.5, 0.5, 0.5);
+        rockModel.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                child.material.roughness = 0.8;
+            }
+        });
+        rock.add(rockModel);
+    });
+    
+    rock.position.set(x, 0, z);
+    rock.userData.type = 'rock2';
+    return rock;
+}
+
 // Add world update function
 function updateWorld() {
     // Update cloud positions and rotations
@@ -4078,6 +4126,9 @@ function updateDinosaurs() {
                     
                     // Damage the dinosaur
                     dino.userData.health--;
+                    
+                    // Show health indicator
+                    showEnemyHealthIndicator(dino);
                     
                     // Visual feedback
                     createExplosion(projectile.position, 

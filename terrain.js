@@ -31,79 +31,45 @@ class TerrainChunk {
     }
 
     generate() {
-        // Generate terrain geometry
+        // Create terrain mesh
         const geometry = new THREE.PlaneGeometry(
-            CHUNK_SIZE, 
             CHUNK_SIZE,
-            CHUNK_SIZE / 2, 
+            CHUNK_SIZE,
+            CHUNK_SIZE / 2,
             CHUNK_SIZE / 2
         );
         geometry.rotateX(-Math.PI / 2);
 
-        // Apply height displacement using noise
+        // Set vertex heights
         const vertices = geometry.attributes.position.array;
         for (let i = 0; i < vertices.length; i += 3) {
             const x = vertices[i] + this.position.x * CHUNK_SIZE;
             const z = vertices[i + 2] + this.position.y * CHUNK_SIZE;
             vertices[i + 1] = this.getHeight(x, z);
         }
+
+        // Update normals and create mesh
         geometry.computeVertexNormals();
-
-        // Add vertex colors based on height and slope
-        const colors = new Float32Array(vertices.length);
-        const isSunsetLevel = window.location.search.includes('level=sunset');
-        
-        for (let i = 0; i < vertices.length; i += 3) {
-            const height = vertices[i + 1];
-            const slope = this.calculateSlope(vertices, i);
-            
-            const color = new THREE.Color();
-            if (isSunsetLevel) {
-                // Dark blue color scheme for sunset level
-                if (height < 0.5) {
-                    color.setHex(0x1a237e); // Darkest blue for valleys
-                } else if (height < 5) {
-                    color.setHex(0x283593); // Medium dark blue for slopes
-                } else {
-                    color.setHex(0x3949ab); // Slightly lighter blue for peaks
-                }
-            } else {
-                // Original green color scheme
-                if (height < 0.5) {
-                    color.setHex(0x3b7d4f); // Grass
-                } else if (height < 5) {
-                    color.setHex(0x4f6d3b); // Dark grass
-                } else {
-                    color.setHex(0x6d6d6d); // Rock
-                }
-            }
-            
-            colors[i] = color.r;
-            colors[i + 1] = color.g;
-            colors[i + 2] = color.b;
-        }
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-        // Create terrain material with grass texture
-        const material = new THREE.MeshStandardMaterial({
-            color: 0x3b7d4f,
-            roughness: 0.8,
-            metalness: 0.1,
-            vertexColors: true
-        });
-
-        // Create terrain mesh
-        this.meshes.terrain = new THREE.Mesh(geometry, material);
-        this.meshes.terrain.position.set(
-            this.position.x * CHUNK_SIZE,
-            0,
-            this.position.y * CHUNK_SIZE
+        this.meshes.terrain = new THREE.Mesh(
+            geometry,
+            new THREE.MeshStandardMaterial({
+                color: 0x44aa44,
+                roughness: 0.8,
+                metalness: 0.2
+            })
         );
-        this.meshes.terrain.receiveShadow = true;
-        this.meshes.terrain.castShadow = true;
 
         // Add vegetation
         this.addVegetation();
+
+        // Create chunk group and add all meshes
+        const chunk = new THREE.Group();
+        chunk.add(this.meshes.terrain);
+        this.meshes.trees.forEach(tree => chunk.add(tree));
+        this.meshes.grass.forEach(grass => chunk.add(grass));
+        this.meshes.rocks.forEach(rock => chunk.add(rock)); // Add rocks to the chunk
+
+        return chunk;
     }
 
     getHeight(x, z) {
@@ -130,6 +96,26 @@ class TerrainChunk {
                     if (height > 0 && height < 5) { // Only place trees on relatively flat ground
                         const tree = this.createTree(worldX, height, worldZ);
                         this.meshes.trees.push(tree);
+                    }
+                }
+            }
+        }
+
+        // Add rocks
+        const ROCK_DENSITY = 0.02; // Adjust this value to control rock frequency
+        for (let x = 0; x < CHUNK_SIZE; x += 5) {
+            for (let z = 0; z < CHUNK_SIZE; z += 5) {
+                if (Math.random() < ROCK_DENSITY) {
+                    const worldX = x + this.position.x * CHUNK_SIZE;
+                    const worldZ = z + this.position.y * CHUNK_SIZE;
+                    const height = this.getHeight(worldX, worldZ);
+                    
+                    if (height > 0 && height < 5) { // Only place rocks on relatively flat ground
+                        // Randomly choose between rock1 and rock2
+                        const rock = Math.random() < 0.5 ? 
+                            createRock1(worldX, height, worldZ) : 
+                            createRock2(worldX, height, worldZ);
+                        this.meshes.rocks.push(rock);
                     }
                 }
             }
@@ -218,6 +204,10 @@ class TerrainChunk {
         this.meshes.grass.forEach(grass => {
             grass.visible = false;
             this.objectPool.grass.push(grass);
+        });
+        this.meshes.rocks.forEach(rock => {
+            rock.visible = false;
+            this.objectPool.rocks.push(rock);
         });
 
         // Clear current meshes
