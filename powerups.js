@@ -7,7 +7,8 @@ export const POWERUP_TYPES = {
         effect: (player, gameState) => {
             // Destroy all foxes with explosion effects
             gameState.enemies.forEach(fox => {
-                createExplosion(fox.position, 0xff3300);
+                // Commented out explosion effect
+                // createExplosion(fox.position, 0xff3300);
                 gameState.scene.remove(fox);
                 
                 const score = 200;
