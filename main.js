@@ -283,7 +283,7 @@ function createHamster() {
                 const model = gltf.scene;
                 
                 // Scale the model to match game proportions
-                model.scale.set(0.5, 0.5, 0.5);
+                model.scale.set(1.8, 1.8, 1.8); // Increased from 0.5 to 0.8
                 
                 // Adjust model orientation if needed
                 model.rotation.y = Math.PI; // Make wombat face forward
@@ -1633,11 +1633,13 @@ document.body.appendChild(touchControls);
 
 // Show/hide touch controls and adjust layout based on device and orientation
 function updateTouchControls() {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isLandscape = window.innerWidth > window.innerHeight;
+    // Improved mobile device detection including iPads
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                    // Additional iPad detection for newer iPads that report as desktop
+                    (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
     
-    // Only show controls if on mobile AND game is in playing state
-    if (!isMobile || gameState.state === 'start') {
+    // Show controls when game is playing and on mobile/tablet devices
+    if ((!isMobile && !navigator.maxTouchPoints) || gameState.state !== 'playing') {
         touchControls.style.display = 'none';
         return;
     }
@@ -1649,27 +1651,31 @@ function updateTouchControls() {
     // Ensure controls don't overflow screen
     const safeArea = Math.min(window.innerHeight * 0.3, 200); // Maximum 30% of screen height or 200px
 
-    if (isLandscape) {
+    // Adjust control sizes based on device size
+    const isTablet = window.innerWidth >= 768; // iPad mini and larger
+    const scale = isTablet ? '1' : '0.8';
+    
+    if (window.innerWidth > window.innerHeight) {
         // Landscape layout
-        moveControls.style.transform = 'scale(0.8)';
-        moveControls.style.right = '20px';
-        moveControls.style.bottom = '20px';
+        moveControls.style.transform = `scale(${scale})`;
+        moveControls.style.right = '40px';
+        moveControls.style.bottom = '40px';
         moveControls.style.height = `${safeArea}px`;
 
-        actionControls.style.transform = 'scale(0.8)';
-        actionControls.style.left = '20px';
-        actionControls.style.bottom = '20px';
+        actionControls.style.transform = `scale(${scale})`;
+        actionControls.style.left = '40px';
+        actionControls.style.bottom = '40px';
         actionControls.style.height = `${safeArea * 0.8}px`;
     } else {
         // Portrait layout
-        moveControls.style.transform = 'scale(1)';
-        moveControls.style.right = '20px';
-        moveControls.style.bottom = '20px';
+        moveControls.style.transform = `scale(${scale})`;
+        moveControls.style.right = '40px';
+        moveControls.style.bottom = '40px';
         moveControls.style.height = `${safeArea}px`;
 
-        actionControls.style.transform = 'scale(1)';
-        actionControls.style.left = '20px';
-        actionControls.style.bottom = '20px';
+        actionControls.style.transform = `scale(${scale})`;
+        actionControls.style.left = '40px';
+        actionControls.style.bottom = '40px';
         actionControls.style.height = `${safeArea * 0.8}px`;
     }
 }
@@ -4610,3 +4616,36 @@ document.getElementById('startButton').addEventListener('click', () => {
     updateGameState('playing');
     // ... rest of start game logic ...
 });
+
+// Add mouse position tracking
+const mouse = new THREE.Vector2();
+const raycaster = new THREE.Raycaster();
+
+function handleMouseMove(event) {
+    // Calculate normalized device coordinates
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    
+    // Update raycaster
+    raycaster.setFromCamera(mouse, camera);
+    
+    // Get the point where the ray intersects the ground plane
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const targetPoint = new THREE.Vector3();
+    raycaster.ray.intersectPlane(groundPlane, targetPoint);
+    
+    // Calculate angle between hamster and target point
+    const direction = new THREE.Vector3()
+        .subVectors(targetPoint, hamster.position)
+        .normalize();
+    
+    // Calculate the target rotation
+    const targetRotation = Math.atan2(direction.x, direction.z);
+    
+    // Smoothly interpolate current rotation to target rotation
+    const rotationSpeed = 0.1;
+    hamster.rotation.y += (targetRotation - hamster.rotation.y) * rotationSpeed;
+}
+
+// Add mouse move event listener
+window.addEventListener('mousemove', handleMouseMove);
