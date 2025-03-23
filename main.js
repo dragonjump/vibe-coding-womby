@@ -225,22 +225,28 @@ const gltfLoader = new GLTFLoader();
 
 // Create seed projectile
 function createSeed() {
-    const seedGeometry = new THREE.SphereGeometry(0.2, 8, 8); // Made seed bigger
+    // Changed from sphere to cone for sharp triangle shape
+    const seedGeometry = new THREE.ConeGeometry(0.2, 0.6, 8); 
     const seedMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xff0000, // Changed from 0x8B4513 to red
-        emissive: 0xff0000, // Changed from 0x4B2006 to red
+        color: 0xff0000,
+        emissive: 0xff0000,
         emissiveIntensity: 0.5
     });
     const seed = new THREE.Mesh(seedGeometry, seedMaterial);
     
+    // Rotate the cone to point forward (along its movement direction)
+    seed.rotation.x = -Math.PI / 2;
+    
     // Add trail effect
-    const trailGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+    const trailGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
     const trailMaterial = new THREE.MeshBasicMaterial({
-        color: 0xff4444, // Changed from 0xA52A2A to light red
+        color: 0xff4444,
         transparent: true,
         opacity: 0.6
     });
     const trail = new THREE.Mesh(trailGeometry, trailMaterial);
+    trail.rotation.x = -Math.PI / 2;
+    trail.position.z = 0.2; // Offset trail behind the main projectile
     seed.add(trail);
     
     return seed;
@@ -1032,11 +1038,11 @@ function handleClick(event) {
                 seed.position.y += 0.5;
                 
                 const angle = (i / (numSeeds - 1) - 0.5) * spreadAngle;
-                const shootDirection = new THREE.Vector3(0, 1.5, -1).normalize();
+                const shootDirection = new THREE.Vector3(0, 0.5, -1).normalize(); // Reduced y component from 1.5 to 0.5
                 shootDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
                 
                 shootDirection.x += (Math.random() - 0.5) * 0.1;
-                shootDirection.y += Math.random() * 0.1;
+                shootDirection.y += Math.random() * 0.05; // Reduced random y variation from 0.1 to 0.05
                 
                 seed.velocity = shootDirection.multiplyScalar(40);
                 
@@ -3066,6 +3072,8 @@ function createFox() {
     tempMesh.userData.state = 'chase';
     tempMesh.userData.chaseDistance = 50;
     tempMesh.userData.retreatDistance = 12;
+    tempMesh.userData.maxHealth = 3; // Add maxHealth
+    tempMesh.userData.health = 3; // Set initial health
     
     // Load the fox model
     const loader = new GLTFLoader();
@@ -3171,27 +3179,35 @@ function updateFoxes() {
             // Only check actual seeds (not particles or fox bullets)
             if (!projectile.lifetime && !projectile.userData.type) {
                 if (projectile.position.distanceTo(fox.position) < 1.5) {
-                    // Remove the fox immediately
-                    scene.remove(fox);
-                    gameState.enemies.splice(i, 1);
+                    // Reduce health instead of immediate removal
+                    fox.userData.health -= 1;
+                    
+                    // Show health indicator
+                    showEnemyHealthIndicator(fox);
                     
                     // Remove the seed
                     scene.remove(projectile);
                     gameState.projectiles.splice(j, 1);
                     
-                    // Create explosion effect
+                    // Create hit effect
                     createExplosion(fox.position, 0xff3300);
-                    
-                    // Add score
-                    const score = 200;
-                    gameState.score += score;
-                    showScorePopup(score, fox.position);
                     
                     // Play sound
                     playSound('hit');
                     
-                    // Return to skip rest of fox update
-                    return;
+                    // Check if enemy is defeated
+                    if (fox.userData.health <= 0) {
+                        // Remove the fox
+                        scene.remove(fox);
+                        gameState.enemies.splice(i, 1);
+                        
+                        // Add score
+                        const score = 200;
+                        gameState.score += score;
+                        showScorePopup(score, fox.position);
+                    }
+                    
+                    return; // Skip rest of update for this frame
                 }
             }
         }
@@ -3877,6 +3893,8 @@ function createTRex() {
     tempMesh.userData.chaseDistance = 60; // Longer chase range
     tempMesh.userData.retreatDistance = 5; // Rarely retreats
     tempMesh.userData.damage = 25; // High damage
+    tempMesh.userData.maxHealth = 5; // Add maxHealth
+    tempMesh.userData.health = 5; // Set initial health
     
     // Load the T-Rex model
     const loader = new GLTFLoader();
@@ -3950,6 +3968,8 @@ function createTriceratops() {
     tempMesh.userData.chaseDistance = 40;
     tempMesh.userData.retreatDistance = 8;
     tempMesh.userData.damage = 20;
+    tempMesh.userData.maxHealth = 4; // Add maxHealth
+    tempMesh.userData.health = 4; // Set initial health
     
     // Load the Triceratops model
     const loader = new GLTFLoader();
@@ -4174,6 +4194,8 @@ function createPterosaur() {
     tempMesh.userData.patrolRadius = 30;
     tempMesh.userData.patrolAngle = Math.random() * Math.PI * 2;
     tempMesh.userData.patrolCenter = new THREE.Vector3();
+    tempMesh.userData.maxHealth = 3; // Add maxHealth
+    tempMesh.userData.health = 3; // Set initial health
     
     // Load the Pterosaur model
     const loader = new GLTFLoader();
@@ -4449,4 +4471,71 @@ function animate() {
     }
 
     // ... rest of animation code ...
+}
+
+// Add health indicator function
+function showEnemyHealthIndicator(enemy) {
+    // Remove existing health indicator if any
+    if (enemy.userData.healthIndicator) {
+        document.body.removeChild(enemy.userData.healthIndicator);
+    }
+
+    // Create health bar container
+    const healthBar = document.createElement('div');
+    healthBar.style.position = 'fixed';
+    healthBar.style.width = '80px'; // Made wider
+    healthBar.style.height = '8px'; // Made taller
+    healthBar.style.backgroundColor = 'rgba(0, 0, 0, 0.8)'; // Darker background
+    healthBar.style.border = '2px solid #000'; // Thicker border
+    healthBar.style.borderRadius = '4px'; // Rounded corners
+    healthBar.style.pointerEvents = 'none';
+    healthBar.style.zIndex = '1000'; // Ensure it's above other elements
+
+    // Create health fill
+    const healthFill = document.createElement('div');
+    healthFill.style.width = `${(enemy.userData.health / enemy.userData.maxHealth) * 100}%`;
+    healthFill.style.height = '100%';
+    healthFill.style.backgroundColor = '#ff3333'; // Brighter red
+    healthFill.style.borderRadius = '2px'; // Rounded corners
+    healthFill.style.transition = 'width 0.2s ease-out'; // Smooth width changes
+    healthBar.appendChild(healthFill);
+
+    // Add to DOM
+    document.body.appendChild(healthBar);
+    enemy.userData.healthIndicator = healthBar;
+    enemy.userData.healthFill = healthFill;
+    enemy.userData.showHealthUntil = Date.now() + 2000; // Show for 2 seconds
+
+    // Update position
+    function updatePosition() {
+        if (!enemy.parent) {
+            if (healthBar.parentNode) {
+                document.body.removeChild(healthBar);
+            }
+            return;
+        }
+
+        // Convert enemy position to screen coordinates
+        const screenPosition = enemy.position.clone().project(camera);
+        const x = (screenPosition.x + 1) * window.innerWidth / 2;
+        const y = (-screenPosition.y + 1) * window.innerHeight / 2;
+        
+        healthBar.style.left = `${x - 40}px`; // Center the 80px wide bar
+        healthBar.style.top = `${y - 40}px`; // Position higher above enemy
+        
+        // Update health fill width
+        healthFill.style.width = `${(enemy.userData.health / enemy.userData.maxHealth) * 100}%`;
+
+        // Check if we should keep showing the health bar
+        if (Date.now() < enemy.userData.showHealthUntil) {
+            requestAnimationFrame(updatePosition);
+        } else {
+            if (healthBar.parentNode) {
+                document.body.removeChild(healthBar);
+            }
+            enemy.userData.healthIndicator = null;
+        }
+    }
+    
+    updatePosition();
 }
