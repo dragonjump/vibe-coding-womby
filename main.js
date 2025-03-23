@@ -843,6 +843,7 @@ window.addEventListener('load', () => {
 
 // Update the start button handler
 document.getElementById('startButton').addEventListener('click', () => {
+    updateGameState('playing');
     // Initialize audio system
     initAudioSystem();
     
@@ -1265,6 +1266,7 @@ uiContainer.style.top = '20px';
 uiContainer.style.left = '20px';
 uiContainer.style.color = 'white';
 uiContainer.style.fontFamily = 'Arial, sans-serif';
+uiContainer.style.display = 'none'; // Hide initially
 document.body.appendChild(uiContainer);
 
 // Create life bar
@@ -4590,3 +4592,21 @@ function showEnemyHealthIndicator(enemy) {
     
     updatePosition();
 }
+
+// Add game state change handler
+function updateGameState(newState) {
+    gameState.state = newState;
+    
+    // Show/hide UI based on game state
+    if (newState === 'playing') {
+        uiContainer.style.display = 'block';
+    } else if (newState === 'start' || newState === 'levelComplete') {
+        uiContainer.style.display = 'none';
+    }
+}
+
+// Modify start game button click handler
+document.getElementById('startButton').addEventListener('click', () => {
+    updateGameState('playing');
+    // ... rest of start game logic ...
+});
