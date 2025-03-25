@@ -283,13 +283,25 @@ function createHamster() {
                 const model = gltf.scene;
                 
                 // Scale the model to match game proportions
-                model.scale.set(1.8, 1.8, 1.8); // Increased from 0.5 to 0.8
+                model.scale.set(1.0, 1.0, 1.0);
                 
                 // Adjust model orientation if needed
                 model.rotation.y = Math.PI; // Make wombat face forward
                 
                 // Add the model to the body group
                 body.add(model);
+
+                // Setup animation
+                const mixer = new THREE.AnimationMixer(model);
+                const animations = gltf.animations;
+                if (animations && animations.length > 0) {
+                    // Play all animations
+                    animations.forEach(clip => {
+                        const action = mixer.clipAction(clip);
+                        action.play();
+                    });
+                    body.mixer = mixer; // Store mixer for updates
+                }
                 
                 // Setup exhaust points for rocket effects
                 const exhaustPoints = new THREE.Group();
@@ -3524,6 +3536,11 @@ function gameLoop(currentTime) {
     // Calculate delta time
     gameState.deltaTime = (currentTime - gameState.time) / 1000;
     gameState.time = currentTime;
+
+    // Update animation mixer if it exists
+    if (hamster && hamster.mixer) {
+        hamster.mixer.update(gameState.deltaTime);
+    }
 
     // Update world generation
     updateWorld();
