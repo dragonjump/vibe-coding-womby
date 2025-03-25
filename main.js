@@ -327,12 +327,19 @@ function createHamster() {
                 const mixer = new THREE.AnimationMixer(model);
                 const animations = gltf.animations;
                 if (animations && animations.length > 0) {
-                    // Play all animations
+                    // Store animations but don't play them yet
+                    body.animations = animations;
+                    body.mixer = mixer;
+                    body.actions = {};
+                    
+                    // Create actions but don't play them
                     animations.forEach(clip => {
                         const action = mixer.clipAction(clip);
+                        body.actions[clip.name] = action;
+                        // Set initial weight to 0 (not playing)
+                        action.setEffectiveWeight(0);
                         action.play();
                     });
-                    body.mixer = mixer; // Store mixer for updates
                 }
                 
                 // Setup exhaust points for rocket effects
@@ -352,115 +359,17 @@ function createHamster() {
                 body.add(exhaustPoints);
                 body.exhaustPoints = exhaustPoints;
                 
-                // Enable shadows
-                model.traverse((node) => {
-                    if (node.isMesh) {
-                        node.castShadow = true;
-                        node.receiveShadow = true;
-                    }
-                });
-                
                 resolve();
             },
-            function (xhr) {
-                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-            },
+            undefined,
             function (error) {
-                console.error('Error loading model:', error);
+                console.error('Error loading hamster model:', error);
                 reject(error);
             }
         );
     });
     
-    // Handle loading failure
-    loadModel.catch(() => {
-        console.warn('Falling back to geometric wombat');
-        createGeometricWombat(body);
-    });
-    
     return body;
-}
-
-// Fallback function to create geometric wombat if model loading fails
-function createGeometricWombat(body) {
-    // Main body (rounded cube for stocky wombat shape)
-    const bodyGeometry = new THREE.BoxGeometry(0.8, 0.6, 1);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Dark brown color
-    const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    bodyMesh.position.y = 0.1; // Slightly raised
-    body.add(bodyMesh);
-
-    // Head (wider and more squared)
-    const headGeometry = new THREE.BoxGeometry(0.6, 0.5, 0.5);
-    const headMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-    const headMesh = new THREE.Mesh(headGeometry, headMaterial);
-    headMesh.position.z = 0.6;
-    headMesh.position.y = 0.2;
-    body.add(headMesh);
-
-    // Nose (characteristic wombat feature)
-    const noseGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.1);
-    const noseMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 }); // Black nose
-    const noseMesh = new THREE.Mesh(noseGeometry, noseMaterial);
-    noseMesh.position.set(0, 0.1, 0.85);
-    body.add(noseMesh);
-
-    // Small rounded ears
-    const earGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.1);
-    const earMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-    
-    const leftEar = new THREE.Mesh(earGeometry, earMaterial);
-    leftEar.position.set(0.2, 0.4, 0.6);
-    body.add(leftEar);
-    
-    const rightEar = new THREE.Mesh(earGeometry, earMaterial);
-    rightEar.position.set(-0.2, 0.4, 0.6);
-    body.add(rightEar);
-
-    // Short, sturdy legs
-    const legGeometry = new THREE.BoxGeometry(0.2, 0.3, 0.2);
-    const legMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-    
-    // Front legs
-    const frontLeftLeg = new THREE.Mesh(legGeometry, legMaterial);
-    frontLeftLeg.position.set(0.3, -0.2, 0.3);
-    body.add(frontLeftLeg);
-    
-    const frontRightLeg = new THREE.Mesh(legGeometry, legMaterial);
-    frontRightLeg.position.set(-0.3, -0.2, 0.3);
-    body.add(frontRightLeg);
-    
-    // Back legs
-    const backLeftLeg = new THREE.Mesh(legGeometry, legMaterial);
-    backLeftLeg.position.set(0.3, -0.2, -0.3);
-    body.add(backLeftLeg);
-    
-    const backRightLeg = new THREE.Mesh(legGeometry, legMaterial);
-    backRightLeg.position.set(-0.3, -0.2, -0.3);
-    body.add(backRightLeg);
-
-    // Rocket pack (box)
-    const rocketGeometry = new THREE.BoxGeometry(0.5, 0.6, 0.3);
-    const rocketMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 }); // Gray color
-    const rocketMesh = new THREE.Mesh(rocketGeometry, rocketMaterial);
-    rocketMesh.position.z = -0.4;
-    rocketMesh.position.y = 0.1;
-    body.add(rocketMesh);
-
-    // Add multiple rocket exhaust points
-    const exhaustPoints = new THREE.Group();
-    const numPoints = 3;  // Three exhaust points
-    for (let i = 0; i < numPoints; i++) {
-        const point = new THREE.Object3D();
-        point.position.set(
-            (i - 1) * 0.15,  // Spread points horizontally
-            -0.3,
-            -0.4
-        );
-        exhaustPoints.add(point);
-    }
-    body.add(exhaustPoints);
-    body.exhaustPoints = exhaustPoints;
 }
 
 // Create and add hamster to scene
@@ -3569,8 +3478,22 @@ function gameLoop(currentTime) {
     gameState.deltaTime = (currentTime - gameState.time) / 1000;
     gameState.time = currentTime;
 
-    // Update animation mixer if it exists
-    if (hamster && hamster.mixer) {
+    // Update animation based on movement
+    if (hamster && hamster.mixer && hamster.actions) {
+        // Check if any movement keys are pressed
+        const isMoving = gameState.keys.forward || gameState.keys.backward || 
+                        gameState.keys.left || gameState.keys.right;
+        
+        // Update animation weights based on movement
+        Object.values(hamster.actions).forEach(action => {
+            const targetWeight = isMoving ? 1 : 0;
+            const currentWeight = action.getEffectiveWeight();
+            // Smoothly transition the weight
+            action.setEffectiveWeight(
+                currentWeight + (targetWeight - currentWeight) * 0.1
+            );
+        });
+        
         hamster.mixer.update(gameState.deltaTime);
     }
 
