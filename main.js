@@ -225,29 +225,61 @@ const gltfLoader = new GLTFLoader();
 
 // Create seed projectile
 function createSeed() {
-    // Changed from sphere to cone for sharp triangle shape
-    const seedGeometry = new THREE.ConeGeometry(0.2, 0.6, 8); 
-    const seedMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xff0000,
-        emissive: 0xff0000,
-        emissiveIntensity: 0.5
-    });
-    const seed = new THREE.Mesh(seedGeometry, seedMaterial);
+    // Create heart shape using custom geometry
+    const heartShape = new THREE.Shape();
     
-    // Rotate the cone to point forward (along its movement direction)
-    seed.rotation.x = -Math.PI / 2;
+    // Draw heart shape path - simplified and more pronounced
+    heartShape.moveTo(0, 0);
+    heartShape.lineTo(-1, 1);
+    heartShape.bezierCurveTo(-1, 2, 0, 2, 0, 1.5);
+    heartShape.bezierCurveTo(0, 2, 1, 2, 1, 1);
+    heartShape.lineTo(0, 0);
+    
+    const extrudeSettings = {
+        depth: 0.1,  // Reduced depth for better visibility
+        bevelEnabled: true,
+        bevelSegments: 2,
+        steps: 1,
+        bevelSize: 0.05,
+        bevelThickness: 0.05
+    };
+    
+    const heartGeometry = new THREE.ExtrudeGeometry(heartShape, extrudeSettings);
+    // Scale the geometry
+    heartGeometry.scale(0.3, 0.3, 0.3);
+    
+    const seedMaterial = new THREE.MeshBasicMaterial({ // Changed to MeshBasicMaterial for consistent visibility
+        color: 0xff1493,  // Deep pink color
+        side: THREE.DoubleSide
+    });
+    const seed = new THREE.Mesh(heartGeometry, seedMaterial);
+    
+    // Rotate to face the camera
+    seed.rotation.set(0, 0, 0);  // Reset rotation
+    
+    // Add a black outline for better shape definition
+    const outlineMaterial = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        side: THREE.BackSide
+    });
+    const outline = new THREE.Mesh(heartGeometry, outlineMaterial);
+    outline.scale.multiplyScalar(1.05);
+    seed.add(outline);
     
     // Add trail effect
-    const trailGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
     const trailMaterial = new THREE.MeshBasicMaterial({
-        color: 0xff4444,
+        color: 0xff69b4,
         transparent: true,
-        opacity: 0.6
+        opacity: 0.4
     });
-    const trail = new THREE.Mesh(trailGeometry, trailMaterial);
-    trail.rotation.x = -Math.PI / 2;
-    trail.position.z = 0.2; // Offset trail behind the main projectile
-    seed.add(trail);
+    
+    // Create multiple trail hearts
+    for (let i = 0; i < 3; i++) {
+        const trail = new THREE.Mesh(heartGeometry, trailMaterial);
+        trail.position.z = -(i + 1) * 0.2;  // Stack them behind the main heart
+        trail.scale.multiplyScalar(0.8 - i * 0.1);  // Each trail gets slightly smaller
+        seed.add(trail);
+    }
     
     return seed;
 }
