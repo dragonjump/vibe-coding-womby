@@ -4728,9 +4728,9 @@ crosshairToggle.addEventListener('click', () => {
             verticalLine.style.position = 'absolute';
             verticalLine.style.left = '50%';
             verticalLine.style.top = '0';
-            verticalLine.style.width = '4px';
+            verticalLine.style.width = '8px'; // Increased from 4px to 8px
             verticalLine.style.height = '100%';
-            verticalLine.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            verticalLine.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'; // Increased opacity from 0.5 to 0.7
             verticalLine.style.transform = 'translateX(-50%)';
             newCrosshair.appendChild(verticalLine);
             
@@ -4740,8 +4740,8 @@ crosshairToggle.addEventListener('click', () => {
             horizontalLine.style.left = '0';
             horizontalLine.style.top = '50%';
             horizontalLine.style.width = '100%';
-            horizontalLine.style.height = '4px';
-            horizontalLine.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            horizontalLine.style.height = '8px'; // Increased from 4px to 8px
+            horizontalLine.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'; // Increased opacity from 0.5 to 0.7
             horizontalLine.style.transform = 'translateY(-50%)';
             newCrosshair.appendChild(horizontalLine);
             
@@ -4750,9 +4750,9 @@ crosshairToggle.addEventListener('click', () => {
             centerDot.style.position = 'absolute';
             centerDot.style.left = '50%';
             centerDot.style.top = '50%';
-            centerDot.style.width = '8px';
-            centerDot.style.height = '8px';
-            centerDot.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            centerDot.style.width = '12px'; // Increased from 8px to 12px
+            centerDot.style.height = '12px'; // Increased from 8px to 12px
+            centerDot.style.backgroundColor = 'rgba(0, 0, 0, 0.9)'; // Increased opacity from 0.8 to 0.9
             centerDot.style.borderRadius = '50%';
             centerDot.style.transform = 'translate(-50%, -50%)';
             newCrosshair.appendChild(centerDot);
