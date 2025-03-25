@@ -4716,14 +4716,47 @@ crosshairToggle.addEventListener('click', () => {
             const newCrosshair = document.createElement('div');
             newCrosshair.id = 'crosshair';
             newCrosshair.style.position = 'fixed';
-            newCrosshair.style.left = '50%';
-            newCrosshair.style.top = '50%';
-            newCrosshair.style.transform = 'translate(-50%, -50%)';
-            newCrosshair.style.width = '40px';
-            newCrosshair.style.height = '40px';
-            newCrosshair.style.border = '2px solid rgba(255, 255, 255, 0.7)';
-            newCrosshair.style.borderRadius = '50%';
+            newCrosshair.style.left = '0';
+            newCrosshair.style.top = '0';
+            newCrosshair.style.width = '100%';
+            newCrosshair.style.height = '100%';
             newCrosshair.style.pointerEvents = 'none';
+            newCrosshair.style.zIndex = '1000';
+            
+            // Create vertical line of T
+            const verticalLine = document.createElement('div');
+            verticalLine.style.position = 'absolute';
+            verticalLine.style.left = '50%';
+            verticalLine.style.top = '0';
+            verticalLine.style.width = '4px';
+            verticalLine.style.height = '100%';
+            verticalLine.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            verticalLine.style.transform = 'translateX(-50%)';
+            newCrosshair.appendChild(verticalLine);
+            
+            // Create horizontal line of T
+            const horizontalLine = document.createElement('div');
+            horizontalLine.style.position = 'absolute';
+            horizontalLine.style.left = '0';
+            horizontalLine.style.top = '50%';
+            horizontalLine.style.width = '100%';
+            horizontalLine.style.height = '4px';
+            horizontalLine.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            horizontalLine.style.transform = 'translateY(-50%)';
+            newCrosshair.appendChild(horizontalLine);
+            
+            // Add center dot
+            const centerDot = document.createElement('div');
+            centerDot.style.position = 'absolute';
+            centerDot.style.left = '50%';
+            centerDot.style.top = '50%';
+            centerDot.style.width = '8px';
+            centerDot.style.height = '8px';
+            centerDot.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            centerDot.style.borderRadius = '50%';
+            centerDot.style.transform = 'translate(-50%, -50%)';
+            newCrosshair.appendChild(centerDot);
+            
             document.body.appendChild(newCrosshair);
         } else {
             crosshair.style.display = 'block';
