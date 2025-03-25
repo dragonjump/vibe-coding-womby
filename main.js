@@ -158,6 +158,7 @@ const gameState = {
     state: 'start', // start, playing, paused, gameover, levelComplete
     level: 1,
     worldPosition: 0,
+    isToggleMode: false,  // New state for toggle mode
     keys: {
         forward: false,
         backward: false,
@@ -957,6 +958,21 @@ function playSound(soundType) {
 
 // Modify handleClick function to standardize timing
 function handleClick(event) {
+    if (event.button === 2) {  // Right click
+        event.preventDefault();
+        gameState.isToggleMode = !gameState.isToggleMode;
+        
+        // Toggle character visibility
+        if (hamster && hamster.children.length > 0) {
+            hamster.children[0].visible = !gameState.isToggleMode;
+        }
+        
+        // Toggle crosshair visibility
+        crosshair.style.display = gameState.isToggleMode ? 'block' : 'none';
+        
+        return;
+    }
+    
     if (gameState.state !== 'playing') {
         Logger.game('Shooting blocked - game not in playing state', {
             currentState: gameState.state
@@ -1222,7 +1238,7 @@ uiContainer.style.fontFamily = 'Arial, sans-serif';
 uiContainer.style.display = 'none'; // Hide initially
 document.body.appendChild(uiContainer);
 
-// Create life bar
+// Create life bar container
 const lifeBarContainer = document.createElement('div');
 lifeBarContainer.style.width = '200px';
 lifeBarContainer.style.height = '20px';
@@ -1231,6 +1247,8 @@ lifeBarContainer.style.border = '2px solid white';
 lifeBarContainer.style.borderRadius = '10px';
 lifeBarContainer.style.overflow = 'hidden';
 lifeBarContainer.style.marginBottom = '10px';
+lifeBarContainer.style.display = 'flex'; // Add flex display
+lifeBarContainer.style.alignItems = 'center'; // Center items vertically
 
 const lifeBar = document.createElement('div');
 lifeBar.style.width = '100%';
@@ -4621,3 +4639,98 @@ function handleMouseMove(event) {
 
 // Add mouse move event listener
 window.addEventListener('mousemove', handleMouseMove);
+
+// Create crosshair element
+const crosshair = document.createElement('div');
+crosshair.style.position = 'fixed';
+crosshair.style.top = '50%';
+crosshair.style.left = '50%';
+crosshair.style.transform = 'translate(-50%, -50%)';
+crosshair.style.width = '40px';
+crosshair.style.height = '40px';
+crosshair.style.border = '2px solid rgba(255, 255, 255, 0.5)';
+crosshair.style.borderRadius = '50%';
+crosshair.style.pointerEvents = 'none';
+crosshair.style.display = 'none';
+crosshair.style.zIndex = '1000';
+document.body.appendChild(crosshair);
+
+// Prevent context menu on right click
+window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// Create crosshair toggle button
+const crosshairToggle = document.createElement('div');
+crosshairToggle.style.width = '30px';
+crosshairToggle.style.height = '30px';
+crosshairToggle.style.marginLeft = '10px';
+crosshairToggle.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+crosshairToggle.style.border = '2px solid white';
+crosshairToggle.style.borderRadius = '50%';
+crosshairToggle.style.cursor = 'pointer';
+crosshairToggle.style.position = 'relative';
+crosshairToggle.style.display = 'flex';
+crosshairToggle.style.justifyContent = 'center';
+crosshairToggle.style.alignItems = 'center';
+crosshairToggle.innerHTML = `
+    <div style="
+        width: 16px;
+        height: 16px;
+        position: relative;
+    ">
+        <div style="
+            position: absolute;
+            width: 16px;
+            height: 2px;
+            background: white;
+            top: 7px;
+        "></div>
+        <div style="
+            position: absolute;
+            width: 2px;
+            height: 16px;
+            background: white;
+            left: 7px;
+        "></div>
+        <div style="
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border: 2px solid white;
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+        "></div>
+    </div>
+`;
+
+// Add click handler for crosshair toggle
+crosshairToggle.addEventListener('click', () => {
+    gameState.isToggleMode = !gameState.isToggleMode;
+    crosshairToggle.style.backgroundColor = gameState.isToggleMode ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.2)';
+    hamster.visible = !gameState.isToggleMode;
+    
+    // Update crosshair visibility
+    const crosshair = document.getElementById('crosshair');
+    if (gameState.isToggleMode) {
+        if (!crosshair) {
+            const newCrosshair = document.createElement('div');
+            newCrosshair.id = 'crosshair';
+            newCrosshair.style.position = 'fixed';
+            newCrosshair.style.left = '50%';
+            newCrosshair.style.top = '50%';
+            newCrosshair.style.transform = 'translate(-50%, -50%)';
+            newCrosshair.style.width = '40px';
+            newCrosshair.style.height = '40px';
+            newCrosshair.style.border = '2px solid rgba(255, 255, 255, 0.7)';
+            newCrosshair.style.borderRadius = '50%';
+            newCrosshair.style.pointerEvents = 'none';
+            document.body.appendChild(newCrosshair);
+        } else {
+            crosshair.style.display = 'block';
+        }
+    } else if (crosshair) {
+        crosshair.style.display = 'none';
+    }
+});
+
+lifeBarContainer.appendChild(crosshairToggle);
