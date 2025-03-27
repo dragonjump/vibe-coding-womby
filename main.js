@@ -1205,8 +1205,8 @@ function createCollectibleSeed(x, y, z) {
     if (Math.random() < 0.75) {
         const bookGroup = new THREE.Group();
 
-        // Book body
-        const bookGeometry = new THREE.BoxGeometry(0.4, 0.1, 0.3);
+        // Book body - increased size by 5x
+        const bookGeometry = new THREE.BoxGeometry(2.0, 0.5, 1.5); // 5x larger than original (0.4, 0.1, 0.3)
         const bookMaterial = new THREE.MeshStandardMaterial({ 
             color: 0x4B0082, // Deep purple color
             metalness: 0.7,
@@ -1217,32 +1217,32 @@ function createCollectibleSeed(x, y, z) {
         const book = new THREE.Mesh(bookGeometry, bookMaterial);
         bookGroup.add(book);
 
-        // Book pages
-        const pagesGeometry = new THREE.BoxGeometry(0.35, 0.12, 0.25);
+        // Book pages - increased size by 5x
+        const pagesGeometry = new THREE.BoxGeometry(1.75, 0.6, 1.25); // 5x larger than original (0.35, 0.12, 0.25)
         const pagesMaterial = new THREE.MeshStandardMaterial({
             color: 0xFFFFFF,
             metalness: 0.1,
             roughness: 0.8
         });
         const pages = new THREE.Mesh(pagesGeometry, pagesMaterial);
-        pages.position.y = 0.01;
+        pages.position.y = 0.05;
         bookGroup.add(pages);
 
-        // Thunder symbol on cover
+        // Thunder symbol on cover - scaled up 5x
         const thunderGeometry = new THREE.BufferGeometry();
         const thunderVertices = new Float32Array([
-            0, 0.1, 0.16,    // top
-            -0.05, 0, 0.16,  // middle left
-            0.05, 0, 0.16,   // middle right
-            0, -0.1, 0.16    // bottom
+            0, 0.5, 0.8,     // top
+            -0.25, 0, 0.8,   // middle left
+            0.25, 0, 0.8,    // middle right
+            0, -0.5, 0.8     // bottom
         ]);
         thunderGeometry.setAttribute('position', new THREE.BufferAttribute(thunderVertices, 3));
         const thunderMaterial = new THREE.LineBasicMaterial({ color: 0xFFFF00 });
         const thunderSymbol = new THREE.Line(thunderGeometry, thunderMaterial);
         bookGroup.add(thunderSymbol);
 
-        // Add electric effect
-        const sparkGeometry = new THREE.SphereGeometry(0.02, 4, 4);
+        // Add electric effect - scaled up
+        const sparkGeometry = new THREE.SphereGeometry(0.1, 4, 4); // 5x larger than original (0.02)
         const sparkMaterial = new THREE.MeshBasicMaterial({
             color: 0xFFFF00,
             transparent: true,
@@ -1252,10 +1252,10 @@ function createCollectibleSeed(x, y, z) {
         for (let i = 0; i < 8; i++) {
             const spark = new THREE.Mesh(sparkGeometry, sparkMaterial);
             const angle = (i / 8) * Math.PI * 2;
-            const radius = 0.25;
+            const radius = 1.25; // 5x larger than original (0.25)
             spark.position.set(
                 Math.cos(angle) * radius,
-                0.1,
+                0.5,
                 Math.sin(angle) * radius
             );
             spark.userData.initialAngle = angle;
@@ -1263,8 +1263,8 @@ function createCollectibleSeed(x, y, z) {
             bookGroup.add(spark);
         }
 
-        // Add glow effect
-        const bookGlowGeometry = new THREE.BoxGeometry(0.5, 0.2, 0.4);
+        // Add glow effect - scaled up 5x
+        const bookGlowGeometry = new THREE.BoxGeometry(2.5, 1.0, 2.0); // 5x larger than original (0.5, 0.2, 0.4)
         const bookGlowMaterial = new THREE.MeshBasicMaterial({
             color: 0xFFFF00,
             transparent: true,
@@ -1273,14 +1273,14 @@ function createCollectibleSeed(x, y, z) {
         const bookGlow = new THREE.Mesh(bookGlowGeometry, bookGlowMaterial);
         bookGroup.add(bookGlow);
 
-        // Add point light for electric effect
-        const electricLight = new THREE.PointLight(0xFFFF00, 1, 2);
-        electricLight.position.set(0, 0.1, 0);
+        // Add point light for electric effect - increased range
+        const electricLight = new THREE.PointLight(0xFFFF00, 1, 10); // Increased range from 2 to 10
+        electricLight.position.set(0, 0.5, 0);
         bookGroup.add(electricLight);
 
-        // Position book beside the coin with random offset
+        // Position book beside the coin with increased random offset
         const angle = Math.random() * Math.PI * 2;
-        const distance = 0.8 + Math.random() * 0.4;
+        const distance = 3.0 + Math.random() * 1.0; // Increased from (0.8 + random * 0.4) to (3.0 + random * 1.0)
         bookGroup.position.set(
             Math.cos(angle) * distance,
             0,
@@ -3907,9 +3907,22 @@ function gameLoop(currentTime) {
             // Play collection sound
             playSound('collect');
             
-            // Check for healing triangle and apply healing if found
+            // Check for thunder book and show fact popup
             coin.children.forEach(child => {
-                if (child.userData.type === 'healingTriangle' && !child.userData.isCollected) {
+                if (child.userData.type === 'thunderBook' && !child.userData.isCollected) {
+                    // Show random dinosaur fact
+                    const randomFact = DINO_FACTS[Math.floor(Math.random() * DINO_FACTS.length)];
+                    const popup = createDinoFactPopup(randomFact);
+                    document.body.appendChild(popup);
+                    
+                    // Create special thunder effect
+                    createExplosion(child.position.clone().add(coin.position), 0xFFFF00);
+                    
+                    // Mark as collected
+                    child.userData.isCollected = true;
+                }
+                // Keep existing healing potion check
+                if (child.userData.type === 'healingPotion' && !child.userData.isCollected) {
                     // Heal 20% of max health
                     const healAmount = gameState.player.maxHealth * 0.2;
                     gameState.player.health = Math.min(gameState.player.maxHealth, gameState.player.health + healAmount);
@@ -4946,4 +4959,124 @@ function createCabana(x, z) {
     });
     
     return cabana;
+}
+
+// Add dinosaur facts array at the top of the file after imports
+const DINO_FACTS = [
+    {
+        title: "Therizinosaurus - The Scythe Lizard",
+        fact: "This dinosaur had the longest claws of any known animal, measuring up to 3 feet in length! Despite its fearsome appearance, it was actually a plant-eater that used its claws to pull down tall branches.",
+        image: "https://images.dinosaurpictures.org/Therizinosaurus_cheloniformis_by_Durbed_3f21.jpg"
+    },
+    {
+        title: "Megalodon - The Ancient Shark",
+        fact: "The Megalodon was the largest shark that ever lived, with teeth the size of a human hand! It could grow up to 60 feet long - that's longer than a school bus!",
+        image: "https://prehistoric-fauna.com/image/cache/data/size/Megalodon-738x591.jpg"
+    },
+    {
+        title: "Quetzalcoatlus - The Sky Giant",
+        fact: "This flying reptile was as tall as a giraffe when standing on the ground and had a wingspan wider than a small plane! It's the largest flying animal ever discovered.",
+        image: "https://images.dinosaurpictures.org/quetzalcoatlus_by_paleoguy-d7kbqe9_0848.jpg"
+    },
+    {
+        title: "Dunkleosteus - The Armored Fish",
+        fact: "This ancient fish had a bite force of 8,000 pounds per square inch - stronger than a T-Rex! Instead of teeth, it had sharp bony plates that acted like scissors.",
+        image: "https://images.dinosaurpictures.org/dunkleosteus_terrelli_by_plastospleen_d1hd3xq-fullview_6ed7.jpg"
+    },
+    {
+        title: "Argentavis - The Giant Bird",
+        fact: "This prehistoric bird had a wingspan of 23 feet - wider than a small aircraft! It was the largest flying bird ever known and could weigh up to 170 pounds.",
+        image: "https://images.dinosaurpictures.org/argentavis_magnificens_by_kevchan-d4ja19h_0c1f.jpg"
+    }
+];
+
+// Create popup for dinosaur facts
+function createDinoFactPopup(fact) {
+    const popup = document.createElement('div');
+    popup.style.position = 'fixed';
+    popup.style.top = '50%';
+    popup.style.left = '50%';
+    popup.style.transform = 'translate(-50%, -50%)';
+    popup.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
+    popup.style.color = 'white';
+    popup.style.padding = '25px';
+    popup.style.borderRadius = '15px';
+    popup.style.maxWidth = '500px'; // Increased to accommodate image
+    popup.style.width = '90%';
+    popup.style.maxHeight = '90vh';
+    popup.style.overflowY = 'auto';
+    popup.style.textAlign = 'center';
+    popup.style.zIndex = '1000';
+    popup.style.fontFamily = 'Arial, sans-serif';
+    popup.style.border = '3px solid #FFD700';
+    popup.style.boxShadow = '0 0 30px rgba(255, 215, 0, 0.4)';
+
+    popup.innerHTML = `
+        <h2 style="
+            color: #FFD700; 
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        ">${fact.title}</h2>
+        <div style="
+            width: 100%;
+            height: 250px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        ">
+            <img src="${fact.image}" style="
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 8px;
+            " onerror="this.style.display='none'">
+        </div>
+        <p style="
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #f0f0f0;
+        ">${fact.fact}</p>
+        <button style="
+            background-color: #FFD700;
+            color: black;
+            border: none;
+            padding: 12px 25px;
+            margin-top: 15px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 0 15px rgba(255, 215, 0, 0.5)';"
+          onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 0 10px rgba(255, 215, 0, 0.3)';"
+        >Close</button>
+    `;
+
+    // Add click handler to close button
+    const closeButton = popup.querySelector('button');
+    closeButton.onclick = () => {
+        popup.style.opacity = '0';
+        popup.style.transform = 'translate(-50%, -50%) scale(0.9)';
+        setTimeout(() => {
+            document.body.removeChild(popup);
+        }, 300);
+    };
+
+    // Add fade-in animation
+    popup.style.transition = 'all 0.3s ease';
+    popup.style.opacity = '0';
+    popup.style.transform = 'translate(-50%, -50%) scale(0.9)';
+    
+    // Trigger animation after a small delay
+    setTimeout(() => {
+        popup.style.opacity = '1';
+        popup.style.transform = 'translate(-50%, -50%) scale(1)';
+    }, 50);
+
+    return popup;
 }
