@@ -4966,27 +4966,27 @@ const DINO_FACTS = [
     {
         title: "Therizinosaurus - The Scythe Lizard",
         fact: "This dinosaur had the longest claws of any known animal, measuring up to 3 feet in length! Despite its fearsome appearance, it was actually a plant-eater that used its claws to pull down tall branches.",
-        image: "https://images.dinosaurpictures.org/Therizinosaurus_cheloniformis_by_Durbed_3f21.jpg"
+        image: "./src/data/Therizinosaurus.webp"
     },
     {
         title: "Megalodon - The Ancient Shark",
         fact: "The Megalodon was the largest shark that ever lived, with teeth the size of a human hand! It could grow up to 60 feet long - that's longer than a school bus!",
-        image: "https://prehistoric-fauna.com/image/cache/data/size/Megalodon-738x591.jpg"
+        image: "./src/data/Megalodon.jpg"
     },
     {
         title: "Quetzalcoatlus - The Sky Giant",
         fact: "This flying reptile was as tall as a giraffe when standing on the ground and had a wingspan wider than a small plane! It's the largest flying animal ever discovered.",
-        image: "https://images.dinosaurpictures.org/quetzalcoatlus_by_paleoguy-d7kbqe9_0848.jpg"
+        image: "./src/data/Quetzalcoatlus_Render.webp"
     },
     {
         title: "Dunkleosteus - The Armored Fish",
         fact: "This ancient fish had a bite force of 8,000 pounds per square inch - stronger than a T-Rex! Instead of teeth, it had sharp bony plates that acted like scissors.",
-        image: "https://images.dinosaurpictures.org/dunkleosteus_terrelli_by_plastospleen_d1hd3xq-fullview_6ed7.jpg"
+        image: "./src/data/Dunkleosteus.webp"
     },
     {
         title: "Argentavis - The Giant Bird",
         fact: "This prehistoric bird had a wingspan of 23 feet - wider than a small aircraft! It was the largest flying bird ever known and could weigh up to 170 pounds.",
-        image: "https://images.dinosaurpictures.org/argentavis_magnificens_by_kevchan-d4ja19h_0c1f.jpg"
+        image: "./src/data/Argentavis.JPG"
     }
 ];
 
