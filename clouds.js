@@ -1,4 +1,4 @@
-import * as THREE from 'https://unpkg.com/three@0.157.0/build/three.module.js';
+import * as THREE from './node_modules/three/build/three.module.js';
 
 const CLOUD_LAYERS = [
     { height: 20, count: 8, size: 2.0, spread: 60, color: 0xffffff },   // High, extra large bright clouds

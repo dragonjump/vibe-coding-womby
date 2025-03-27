@@ -203,7 +203,8 @@ const gameState = {
         mountains: [],
         trees: [],
         lastGeneratedPosition: 0,
-        generationDistance: 50
+        generationDistance: 50,
+        cabanas: []
     },
     combo: {
         count: 0,
@@ -591,7 +592,7 @@ const menuDirectionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
 menuDirectionalLight.position.set(5, 10, 5);
 menuScene.add(menuDirectionalLight);
 
-// Create palm trees
+// Create palm trees and cabanas for menu scene
 const palmTrees = [];
 for (let i = 0; i < 5; i++) {
     const palm = new THREE.Group();
@@ -646,6 +647,17 @@ for (let i = 0; i < 5; i++) {
     
     menuScene.add(palm);
     palmTrees.push(palm);
+
+    // Add a cabana near palm trees with increased chance and distance
+    if (Math.random() < 0.6) { // Increased from 0.4 to 0.6 (60% chance)
+        const cabanaRadius = radius + 3 + (Math.random() * 2); // Increased minimum distance by 3 units
+        const cabanaAngle = angle + (Math.random() - 0.5) * 0.5; // Increased angle variation
+        const cabana = createCabana(
+            Math.cos(cabanaAngle) * cabanaRadius,
+            Math.sin(cabanaAngle) * cabanaRadius - 5
+        );
+        menuScene.add(cabana);
+    }
 }
 
 // Create floating hamster for menu
@@ -729,6 +741,17 @@ function animateMenu(time) {
             leaves.forEach((leaf, leafIndex) => {
                 leaf.rotation.z = Math.sin((time * 0.002) + index + leafIndex) * 0.1 + Math.PI / 6;
             });
+        });
+
+        // Animate cabanas with subtle swaying
+        menuScene.children.forEach(child => {
+            if (child.userData && child.userData.type === 'cabana') {
+                const swaySpeed = child.userData.swaySpeed || 0.3;
+                const swayOffset = child.userData.swayOffset || 0;
+                // Gentle swaying motion
+                child.rotation.x = Math.sin(time * 0.0005 * swaySpeed + swayOffset) * 0.02;
+                child.rotation.z = Math.cos(time * 0.0005 * swaySpeed + swayOffset) * 0.02;
+            }
         });
 
         // Animate clouds
@@ -1970,7 +1993,7 @@ function initializeLevelElements(level) {
         const mountain = createMountain(position, height, mountainColor);
         scene.add(mountain);
 
-        // Add palm trees near each mountain
+        // Add palm trees and cabanas near each mountain
         const numPalms = 1 + Math.floor(Math.random() * 2); // Reduced from 2-4 to 1-2 trees
         for (let j = 0; j < numPalms; j++) {
             const palmAngle = angle + (Math.random() - 0.5) * 0.5;
@@ -1991,6 +2014,24 @@ function initializeLevelElements(level) {
             gameState.scenery.trees.push(palm);
             
             scene.add(palm);
+
+            // Add a cabana near palm trees with increased chance and distance
+            if (Math.random() < 0.5) { // Increased from 0.3 to 0.5 (50% chance)
+                const cabanaAngle = palmAngle + (Math.random() - 0.5) * 0.8; // Increased angle variation
+                const cabanaRadius = palmRadius + 8 + (Math.random() * 5); // Increased minimum distance by 8 units
+                const cabanaPosition = new THREE.Vector3(
+                    Math.cos(cabanaAngle) * cabanaRadius,
+                    0,
+                    Math.sin(cabanaAngle) * cabanaRadius
+                );
+                
+                const cabana = createCabana(cabanaPosition.x, cabanaPosition.z);
+                scene.add(cabana);
+                
+                // Store cabana for management
+                if (!gameState.scenery.cabanas) gameState.scenery.cabanas = [];
+                gameState.scenery.cabanas.push(cabana);
+            }
         }
     }
 }
@@ -2851,7 +2892,7 @@ function updateWorld() {
     
     // Update palm trees
     if (gameState.scenery && gameState.scenery.trees) {
-    gameState.scenery.trees.forEach(tree => {
+        gameState.scenery.trees.forEach(tree => {
             if (!tree.visible || !tree.userData || tree.userData.type !== 'palm_tree') return;
             
             const time = gameState.time * 0.001;
@@ -2878,52 +2919,21 @@ function updateWorld() {
             }
         });
     }
-    
-    // Update birds
-    gameState.birds.forEach(bird => {
-        // Update wing animation
-        bird.userData.wingAngle += gameState.deltaTime * 10;
-        const wingRotation = Math.sin(bird.userData.wingAngle) * 0.5;
-        
-        // Apply wing rotation
-        if (bird.children[1] && bird.children[2]) {
-            bird.children[1].rotation.z = wingRotation; // Left wing
-            bird.children[2].rotation.z = -wingRotation; // Right wing
-        }
-        
-        // Bird movement pattern
-        const time = gameState.time * 0.001;
-        const radius = 10;
-        const height = 5;
-        
-        // Calculate new position
-        const newX = bird.userData.startPos ? 
-            bird.userData.startPos.x + Math.sin(time) * radius : 
-            bird.position.x;
-        const newY = bird.userData.startPos ? 
-            bird.userData.startPos.y + Math.cos(time * 0.5) * height : 
-            bird.position.y;
-        
-        // Store initial position if not set
-        if (!bird.userData.startPos) {
-            bird.userData.startPos = bird.position.clone();
-        }
-        
-        // Update position
-        bird.position.x = newX;
-        bird.position.y = newY;
-        
-        // Rotate bird based on movement direction
-        const targetRotation = Math.atan2(
-            bird.position.x - bird.userData.prevX,
-            bird.position.z - bird.userData.prevZ
-        );
-        bird.rotation.y = targetRotation;
-        
-        // Store previous position for next frame
-        bird.userData.prevX = bird.position.x;
-        bird.userData.prevZ = bird.position.z;
-    });
+
+    // Update cabanas
+    if (gameState.scenery && gameState.scenery.cabanas) {
+        gameState.scenery.cabanas.forEach(cabana => {
+            if (!cabana.visible) return;
+            
+            const time = gameState.time * 0.001;
+            const swaySpeed = cabana.userData.swaySpeed || 0.3;
+            const swayOffset = cabana.userData.swayOffset || 0;
+            
+            // Very subtle swaying motion for cabanas
+            cabana.rotation.x = Math.sin(time * swaySpeed + swayOffset) * 0.02;
+            cabana.rotation.z = Math.cos(time * swaySpeed + swayOffset) * 0.02;
+        });
+    }
 }
 
 // Add bird update function
@@ -4767,3 +4777,78 @@ crosshairToggle.addEventListener('click', () => {
 });
 
 lifeBarContainer.appendChild(crosshairToggle);
+
+// Create cabana function
+function createCabana(x, z) {
+    console.log('Creating new cabana...');
+    
+    // Create a temporary box as placeholder while model loads
+    const tempGeometry = new THREE.BoxGeometry(3, 2, 3);
+    const tempMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
+    const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
+    tempMesh.visible = false;
+    
+    // Add properties
+    tempMesh.userData.type = 'cabana';
+    
+    // Create a group to hold the model
+    const cabana = new THREE.Group();
+    cabana.position.set(x, 0, z);
+    cabana.add(tempMesh);
+    
+    // Load the cabana model
+    const loader = new GLTFLoader();
+    loader.load('assets/models/cabana.glb', (gltf) => {
+        const cabanaModel = gltf.scene;
+        
+        // Scale and position the cabana
+        cabanaModel.scale.set(1.0, 1.0, 1.0); // Adjust scale as needed
+        cabanaModel.position.copy(tempMesh.position);
+        cabanaModel.rotation.y = Math.random() * Math.PI * 2; // Random rotation
+        
+        // Enable shadows and enhance materials
+        cabanaModel.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                
+                if (child.material) {
+                    // Enhance wood materials
+                    if (child.material.name.includes('wood')) {
+                        child.material.roughness = 0.8;
+                        child.material.metalness = 0.1;
+                    }
+                    // Enhance roof materials
+                    else if (child.material.name.includes('roof') || child.material.name.includes('thatch')) {
+                        child.material.roughness = 0.9;
+                        child.material.metalness = 0.0;
+                    }
+                }
+            }
+        });
+        
+        // Replace temp mesh with cabana model
+        if (tempMesh.parent) {
+            tempMesh.parent.add(cabanaModel);
+            tempMesh.parent.remove(tempMesh);
+            
+            // Transfer properties
+            cabanaModel.userData = { ...tempMesh.userData };
+            
+            // Add to scenery if needed
+            if (gameState.scenery && !gameState.scenery.cabanas) {
+                gameState.scenery.cabanas = [];
+            }
+            if (gameState.scenery && gameState.scenery.cabanas) {
+                gameState.scenery.cabanas.push(cabanaModel);
+            }
+        }
+        
+        console.log('Cabana model loaded successfully');
+    }, undefined, (error) => {
+        console.error('Error loading cabana model:', error);
+        tempMesh.visible = true;
+    });
+    
+    return cabana;
+}

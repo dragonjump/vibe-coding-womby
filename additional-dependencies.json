@@ -1,0 +1,10 @@
+{
+  "name": "vibecoding-threejs-dependencies",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "simplex-noise": "4.0.1",
+    "three": "0.157.0"
+  }
+} 

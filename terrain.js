@@ -1,6 +1,6 @@
 // Import Three.js and SimplexNoise for terrain generation
-import * as THREE from 'https://unpkg.com/three@0.157.0/build/three.module.js';
-import { createNoise2D } from 'https://unpkg.com/simplex-noise@4.0.1/dist/esm/simplex-noise.js';
+import * as THREE from './node_modules/three/build/three.module.js';
+import { createNoise2D } from './node_modules/simplex-noise/dist/esm/simplex-noise.js';
 
 // Constants for terrain generation
 const CHUNK_SIZE = 32;
