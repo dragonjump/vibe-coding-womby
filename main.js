@@ -1201,8 +1201,8 @@ function createCollectibleSeed(x, y, z) {
         seed.add(potionGroup);
     }
     
-    // Add thunder book with 20% chance
-    if (Math.random() < 0.2) {
+    // Add thunder book with 75% chance
+    if (Math.random() < 0.75) {
         const bookGroup = new THREE.Group();
 
         // Book body
