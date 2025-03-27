@@ -1201,6 +1201,101 @@ function createCollectibleSeed(x, y, z) {
         seed.add(potionGroup);
     }
     
+    // Add thunder book with 20% chance
+    if (Math.random() < 0.2) {
+        const bookGroup = new THREE.Group();
+
+        // Book body
+        const bookGeometry = new THREE.BoxGeometry(0.4, 0.1, 0.3);
+        const bookMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x4B0082, // Deep purple color
+            metalness: 0.7,
+            roughness: 0.3,
+            emissive: 0x4B0082,
+            emissiveIntensity: 0.3
+        });
+        const book = new THREE.Mesh(bookGeometry, bookMaterial);
+        bookGroup.add(book);
+
+        // Book pages
+        const pagesGeometry = new THREE.BoxGeometry(0.35, 0.12, 0.25);
+        const pagesMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            metalness: 0.1,
+            roughness: 0.8
+        });
+        const pages = new THREE.Mesh(pagesGeometry, pagesMaterial);
+        pages.position.y = 0.01;
+        bookGroup.add(pages);
+
+        // Thunder symbol on cover
+        const thunderGeometry = new THREE.BufferGeometry();
+        const thunderVertices = new Float32Array([
+            0, 0.1, 0.16,    // top
+            -0.05, 0, 0.16,  // middle left
+            0.05, 0, 0.16,   // middle right
+            0, -0.1, 0.16    // bottom
+        ]);
+        thunderGeometry.setAttribute('position', new THREE.BufferAttribute(thunderVertices, 3));
+        const thunderMaterial = new THREE.LineBasicMaterial({ color: 0xFFFF00 });
+        const thunderSymbol = new THREE.Line(thunderGeometry, thunderMaterial);
+        bookGroup.add(thunderSymbol);
+
+        // Add electric effect
+        const sparkGeometry = new THREE.SphereGeometry(0.02, 4, 4);
+        const sparkMaterial = new THREE.MeshBasicMaterial({
+            color: 0xFFFF00,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        for (let i = 0; i < 8; i++) {
+            const spark = new THREE.Mesh(sparkGeometry, sparkMaterial);
+            const angle = (i / 8) * Math.PI * 2;
+            const radius = 0.25;
+            spark.position.set(
+                Math.cos(angle) * radius,
+                0.1,
+                Math.sin(angle) * radius
+            );
+            spark.userData.initialAngle = angle;
+            spark.userData.radius = radius;
+            bookGroup.add(spark);
+        }
+
+        // Add glow effect
+        const bookGlowGeometry = new THREE.BoxGeometry(0.5, 0.2, 0.4);
+        const bookGlowMaterial = new THREE.MeshBasicMaterial({
+            color: 0xFFFF00,
+            transparent: true,
+            opacity: 0.3
+        });
+        const bookGlow = new THREE.Mesh(bookGlowGeometry, bookGlowMaterial);
+        bookGroup.add(bookGlow);
+
+        // Add point light for electric effect
+        const electricLight = new THREE.PointLight(0xFFFF00, 1, 2);
+        electricLight.position.set(0, 0.1, 0);
+        bookGroup.add(electricLight);
+
+        // Position book beside the coin with random offset
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 0.8 + Math.random() * 0.4;
+        bookGroup.position.set(
+            Math.cos(angle) * distance,
+            0,
+            Math.sin(angle) * distance
+        );
+
+        // Add animation properties
+        bookGroup.userData.type = 'thunderBook';
+        bookGroup.userData.isCollected = false;
+        bookGroup.userData.floatOffset = Math.random() * Math.PI * 2;
+        bookGroup.userData.rotationSpeed = 1 + Math.random();
+
+        seed.add(bookGroup);
+    }
+    
     // Set position closer to ground
     const groundHeight = terrainManager.getHeight(x, z);
     seed.position.set(x, groundHeight + 0.5, z); // Reduced from +1 to +0.5
