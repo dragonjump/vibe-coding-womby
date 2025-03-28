@@ -2307,14 +2307,14 @@ function resetGame() {
         } else if (enemyType < 0.50) {
             enemy = createPterosaur();
             Logger.game('Spawning Pterosaur');
-        } else {
+        } else if (enemyType < 0.75) { // Split remaining 50% between Charmander and Pikachu
             // Create a temporary cube as placeholder while model loads
-            const tempGeometry = new THREE.BoxGeometry(2, 2, 2); // Increased size from 1,1,1
-            const tempMaterial = new THREE.MeshPhongMaterial({ color: 0xFF4500 }); // Orange-red for Charmander
+            const tempGeometry = new THREE.BoxGeometry(2, 2, 2);
+            const tempMaterial = new THREE.MeshPhongMaterial({ color: 0xFF4500 });
             const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
             tempMesh.visible = false;
             
-            // Add Charmander properties - matching fox pattern
+            // Add Charmander properties
             tempMesh.userData.type = 'charmander';
             tempMesh.userData.health = 5;
             tempMesh.userData.maxHealth = 5;
@@ -2332,7 +2332,7 @@ function resetGame() {
                 const charmander = gltf.scene;
                 
                 // Scale and position - increased size
-                charmander.scale.set(1.5, 1.5, 1.5); // Made even bigger
+                charmander.scale.set(1.5, 1.5, 1.5);
                 charmander.position.copy(tempMesh.position);
                 
                 // Add 180-degree rotation to face the player
@@ -2368,13 +2368,6 @@ function resetGame() {
                     // Transfer properties
                     charmander.userData = { ...tempMesh.userData };
                 }
-                
-                Logger.game('Charmander model loaded successfully', {
-                    type: charmander.userData.type,
-                    health: charmander.userData.health,
-                    interval: charmander.userData.shootInterval,
-                    speed: charmander.userData.moveSpeed
-                });
             }, undefined, (error) => {
                 console.error('Error loading Charmander model:', error);
                 tempMesh.visible = true;
@@ -2382,6 +2375,74 @@ function resetGame() {
 
             enemy = tempMesh;
             Logger.game('Spawning Charmander');
+        } else {
+            // Create a temporary cube as placeholder while model loads
+            const tempGeometry = new THREE.BoxGeometry(2, 2, 2);
+            const tempMaterial = new THREE.MeshPhongMaterial({ color: 0xFFFF00 }); // Yellow for Pikachu
+            const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
+            tempMesh.visible = false;
+            
+            // Add Pikachu properties - similar to Charmander
+            tempMesh.userData.type = 'pikachu';
+            tempMesh.userData.health = 5;
+            tempMesh.userData.maxHealth = 5;
+            tempMesh.userData.shootTimer = 0;
+            tempMesh.userData.shootInterval = 1.5;
+            tempMesh.userData.moveSpeed = 7;
+            tempMesh.userData.state = 'chase';
+            tempMesh.userData.chaseDistance = 50;
+            tempMesh.userData.retreatDistance = 8;
+            tempMesh.userData.damage = 20;
+
+            // Load the Pikachu model
+            const loader = new GLTFLoader();
+            loader.load('assets/models/Pikachu.glb', (gltf) => {
+                const pikachu = gltf.scene;
+                
+                // Scale and position - same as Charmander
+                pikachu.scale.set(2.5, 2.5, 2.5);
+                pikachu.position.copy(tempMesh.position);
+                
+                // Add 180-degree rotation to face the player
+                pikachu.rotation.y = Math.PI;
+                
+                // Enable shadows and add yellow glow effect
+                pikachu.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        
+                        if (child.material) {
+                            child.material.emissive = new THREE.Color(0xFFFF00);
+                            child.material.emissiveIntensity = 0.5;
+                        }
+                    }
+                });
+                
+                // Add lightning effect
+                const lightningLight = new THREE.PointLight(0xFFFF00, 2, 5);
+                lightningLight.position.set(0, 2, 0);
+                pikachu.add(lightningLight);
+                
+                // Replace temp mesh with Pikachu model
+                if (tempMesh.parent) {
+                    const index = gameState.enemies.indexOf(tempMesh);
+                    if (index !== -1) {
+                        gameState.enemies[index] = pikachu;
+                    }
+                    tempMesh.parent.add(pikachu);
+                    tempMesh.parent.remove(tempMesh);
+                    
+                    // Transfer properties
+                    pikachu.userData = { ...tempMesh.userData };
+                }
+            }, undefined, (error) => {
+                console.error('Error loading Pikachu model:', error);
+                tempMesh.visible = true;
+            });
+
+            enemy = tempMesh;
+            Logger.game('Spawning Pikachu');
         }
         
         // Position enemies in a circle around the player
@@ -3335,11 +3396,11 @@ function createFox() {
 }
 
 // Create fox bullet
-function createFoxBullet(position, direction) {
+function createFoxBullet(position, direction, color = 0xff0000) {
     const geometry = new THREE.SphereGeometry(0.2, 8, 8);
     const material = new THREE.MeshStandardMaterial({
-        color: 0xff0000,
-        emissive: 0xff0000,
+        color: color,
+        emissive: color,
         emissiveIntensity: 0.5
     });
     const bullet = new THREE.Mesh(geometry, material);
@@ -3349,7 +3410,7 @@ function createFoxBullet(position, direction) {
     const trail = new THREE.Mesh(
         new THREE.SphereGeometry(0.1, 8, 8),
         new THREE.MeshBasicMaterial({
-            color: 0xff4400,
+            color: color,
             transparent: true,
             opacity: 0.6
         })
@@ -3361,6 +3422,74 @@ function createFoxBullet(position, direction) {
     bullet.userData.damage = 10;
     
     return bullet;
+}
+
+// Create Pikachu's lightning bolt
+function createLightningBolt(position, direction) {
+    const boltGroup = new THREE.Group();
+    boltGroup.position.copy(position);
+
+    // Create zigzag lightning shape
+    const points = [];
+    const segments = 5;
+    const zigzagScale = 0.3;
+    
+    for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const zigzag = (i % 2 === 0) ? zigzagScale : -zigzagScale;
+        points.push(new THREE.Vector3(
+            zigzag,
+            0,
+            -t * 2 // Length of the bolt
+        ));
+    }
+
+    const boltGeometry = new THREE.BufferGeometry().setFromPoints(points);
+    const boltMaterial = new THREE.LineBasicMaterial({
+        color: 0xffff00,
+        linewidth: 3
+    });
+    const bolt = new THREE.Line(boltGeometry, boltMaterial);
+
+    // Add glow effect
+    const glowGeometry = new THREE.CylinderGeometry(0.2, 0.2, 2, 8);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffff00,
+        transparent: true,
+        opacity: 0.3
+    });
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+    glow.rotation.x = Math.PI / 2;
+    boltGroup.add(glow);
+
+    // Add core lightning effect
+    const coreGeometry = new THREE.CylinderGeometry(0.05, 0.05, 2, 8);
+    const coreMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.8
+    });
+    const core = new THREE.Mesh(coreGeometry, coreMaterial);
+    core.rotation.x = Math.PI / 2;
+    boltGroup.add(core);
+
+    // Add the zigzag bolt
+    boltGroup.add(bolt);
+
+    // Add point light for dynamic lighting
+    const light = new THREE.PointLight(0xffff00, 2, 3);
+    boltGroup.add(light);
+
+    // Set velocity and properties
+    boltGroup.velocity = direction.normalize().multiplyScalar(40);
+    boltGroup.userData.type = 'lightningBolt';
+    boltGroup.userData.damage = 15;
+
+    // Add animation properties
+    boltGroup.userData.rotationSpeed = Math.random() * 10 + 5;
+    boltGroup.userData.pulseTime = 0;
+
+    return boltGroup;
 }
 
 // Add fox update function
@@ -3375,7 +3504,7 @@ function updateFoxes() {
     // Update foxes and check for seed collisions
     for (let i = gameState.enemies.length - 1; i >= 0; i--) {
         const enemy = gameState.enemies[i];
-        if (enemy.userData.type !== 'fox' && enemy.userData.type !== 'charmander') {
+        if (enemy.userData.type !== 'fox' && enemy.userData.type !== 'charmander' && enemy.userData.type !== 'pikachu') {
             continue;
         }
         
@@ -3396,7 +3525,8 @@ function updateFoxes() {
                     gameState.projectiles.splice(j, 1);
                     
                     // Create hit effect
-                    createExplosion(enemy.position, enemy.userData.type === 'charmander' ? 0xFF4500 : 0xff3300);
+                    createExplosion(enemy.position, enemy.userData.type === 'charmander' ? 0xFF4500 : 
+                        enemy.userData.type === 'pikachu' ? 0xFFFF00 : 0xff3300);
                     
                     // Play sound
                     playSound('hit');
@@ -3408,7 +3538,7 @@ function updateFoxes() {
                         gameState.enemies.splice(i, 1);
                         
                         // Add score
-                        const score = enemy.userData.type === 'charmander' ? 300 : 200;
+                        const score = enemy.userData.type === 'charmander' || enemy.userData.type === 'pikachu' ? 300 : 200;
                         gameState.score += score;
                         showScorePopup(score, enemy.position);
                     }
@@ -3452,6 +3582,11 @@ function updateFoxes() {
                 enemy.position.clone().sub(hamster.position)
             );
             enemy.lookAt(oppositePosition);
+        } else if (enemy.userData.type === 'pikachu') {
+            // Pikachu should face the player directly
+            enemy.lookAt(hamster.position);
+            // Add 180 degrees to make it face forward
+            enemy.rotation.y += Math.PI;
         } else {
             enemy.lookAt(hamster.position);
         }
@@ -3467,9 +3602,19 @@ function updateFoxes() {
                 .subVectors(hamster.position, bulletPosition)
                 .normalize();
             
-            const bullet = createFoxBullet(bulletPosition, bulletDirection);
-            scene.add(bullet);
-            gameState.projectiles.push(bullet);
+            let projectile;
+            if (enemy.userData.type === 'pikachu') {
+                projectile = createLightningBolt(bulletPosition, bulletDirection);
+            } else {
+                projectile = createFoxBullet(
+                    bulletPosition, 
+                    bulletDirection,
+                    enemy.userData.type === 'charmander' ? 0xFF4500 : 0xff0000
+                );
+            }
+            
+            scene.add(projectile);
+            gameState.projectiles.push(projectile);
             
             // Play shoot sound
             playSound('shoot');
@@ -3801,6 +3946,47 @@ function gameLoop(currentTime) {
             }
             
             // Remove bullets that go too far
+            if (projectile.position.distanceTo(hamster.position) > 50) {
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+        } else if (projectile.userData.type === 'lightningBolt') {
+            // Lightning bolt update
+            projectile.position.add(
+                projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
+            );
+            
+            // Rotate the bolt
+            projectile.rotation.z += projectile.userData.rotationSpeed * gameState.deltaTime;
+            
+            // Pulse animation
+            projectile.userData.pulseTime += gameState.deltaTime * 10;
+            const pulse = Math.sin(projectile.userData.pulseTime) * 0.5 + 0.5;
+            
+            // Apply pulse to glow and light
+            projectile.children.forEach(child => {
+                if (child.material && child.material.opacity) {
+                    if (child.material.color.getHex() === 0xffff00) {
+                        child.material.opacity = 0.3 + pulse * 0.2;
+                    }
+                }
+                if (child.isPointLight) {
+                    child.intensity = 1 + pulse;
+                }
+            });
+            
+            // Check collision with player
+            if (!gameState.player.isInvulnerable && 
+                projectile.position.distanceTo(hamster.position) < 1.5) {
+                takeDamage(projectile.userData.damage);
+                createExplosion(projectile.position, 0xffff00);
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+            
+            // Remove lightning bolts that go too far
             if (projectile.position.distanceTo(hamster.position) > 50) {
                 scene.remove(projectile);
                 gameState.projectiles.splice(i, 1);
