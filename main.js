@@ -2375,7 +2375,7 @@ function resetGame() {
 
             enemy = tempMesh;
             Logger.game('Spawning Charmander');
-        } else {
+        } else if (enemyType < 0.875) { // Split remaining 25% between Pikachu and Squirtle
             // Create a temporary cube as placeholder while model loads
             const tempGeometry = new THREE.BoxGeometry(2, 2, 2);
             const tempMaterial = new THREE.MeshPhongMaterial({ color: 0xFFFF00 }); // Yellow for Pikachu
@@ -2443,6 +2443,74 @@ function resetGame() {
 
             enemy = tempMesh;
             Logger.game('Spawning Pikachu');
+        } else {
+            // Create a temporary cube as placeholder while model loads
+            const tempGeometry = new THREE.BoxGeometry(2, 2, 2);
+            const tempMaterial = new THREE.MeshPhongMaterial({ color: 0x00BFFF }); // Light blue for Squirtle
+            const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
+            tempMesh.visible = false;
+            
+            // Add Squirtle properties - similar to other Pokemon
+            tempMesh.userData.type = 'squirtle';
+            tempMesh.userData.health = 5;
+            tempMesh.userData.maxHealth = 5;
+            tempMesh.userData.shootTimer = 0;
+            tempMesh.userData.shootInterval = 1.5;
+            tempMesh.userData.moveSpeed = 7;
+            tempMesh.userData.state = 'chase';
+            tempMesh.userData.chaseDistance = 50;
+            tempMesh.userData.retreatDistance = 8;
+            tempMesh.userData.damage = 20;
+
+            // Load the Squirtle model
+            const loader = new GLTFLoader();
+            loader.load('assets/models/Squirtle.glb', (gltf) => {
+                const squirtle = gltf.scene;
+                
+                // Scale and position - same as others
+                squirtle.scale.set(2.5, 2.5, 2.5);
+                squirtle.position.copy(tempMesh.position);
+                
+                // Add 180-degree rotation to face the player
+                squirtle.rotation.y = Math.PI;
+                
+                // Enable shadows and add blue glow effect
+                squirtle.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        
+                        if (child.material) {
+                            child.material.emissive = new THREE.Color(0x00BFFF);
+                            child.material.emissiveIntensity = 0.5;
+                        }
+                    }
+                });
+                
+                // Add water effect
+                const waterLight = new THREE.PointLight(0x00BFFF, 2, 5);
+                waterLight.position.set(0, 2, 0);
+                squirtle.add(waterLight);
+                
+                // Replace temp mesh with Squirtle model
+                if (tempMesh.parent) {
+                    const index = gameState.enemies.indexOf(tempMesh);
+                    if (index !== -1) {
+                        gameState.enemies[index] = squirtle;
+                    }
+                    tempMesh.parent.add(squirtle);
+                    tempMesh.parent.remove(tempMesh);
+                    
+                    // Transfer properties
+                    squirtle.userData = { ...tempMesh.userData };
+                }
+            }, undefined, (error) => {
+                console.error('Error loading Squirtle model:', error);
+                tempMesh.visible = true;
+            });
+
+            enemy = tempMesh;
+            Logger.game('Spawning Squirtle');
         }
         
         // Position enemies in a circle around the player
@@ -3492,6 +3560,72 @@ function createLightningBolt(position, direction) {
     return boltGroup;
 }
 
+// Create Squirtle's water blast
+function createWaterBlast(position, direction) {
+    const boltGroup = new THREE.Group();
+    boltGroup.position.copy(position);
+
+    // Create main water stream with larger size
+    const streamGeometry = new THREE.CylinderGeometry(0.3, 0.5, 2.5, 12);
+    const streamMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00BFFF,
+        transparent: true,
+        opacity: 0.7
+    });
+    const stream = new THREE.Mesh(streamGeometry, streamMaterial);
+    stream.rotation.x = Math.PI / 2;
+    boltGroup.add(stream);
+
+    // Add more water droplet particles
+    for (let i = 0; i < 12; i++) {
+        const dropletGeometry = new THREE.SphereGeometry(0.15, 6, 6);
+        const dropletMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00BFFF,
+            transparent: true,
+            opacity: 0.6
+        });
+        const droplet = new THREE.Mesh(dropletGeometry, dropletMaterial);
+        
+        // Position droplets in a spiral pattern
+        const angle = (i / 12) * Math.PI * 2;
+        const radius = 0.4 + (i / 12) * 0.3;
+        droplet.position.set(
+            Math.cos(angle) * radius,
+            0,
+            Math.sin(angle) * radius
+        );
+        boltGroup.add(droplet);
+    }
+
+    // Add larger splash effect
+    const splashGeometry = new THREE.CircleGeometry(0.6, 12);
+    const splashMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00BFFF,
+        transparent: true,
+        opacity: 0.4,
+        side: THREE.DoubleSide
+    });
+    const splash = new THREE.Mesh(splashGeometry, splashMaterial);
+    splash.position.z = -1.2;
+    boltGroup.add(splash);
+
+    // Add stronger point light for dynamic lighting
+    const light = new THREE.PointLight(0x00BFFF, 3, 4);
+    boltGroup.add(light);
+
+    // Set velocity and properties
+    boltGroup.velocity = direction.normalize().multiplyScalar(45); // Increased speed
+    boltGroup.userData.type = 'waterBlast';
+    boltGroup.userData.damage = 15;
+
+    // Add animation properties
+    boltGroup.userData.rotationSpeed = Math.random() * 12 + 8; // Increased rotation
+    boltGroup.userData.pulseTime = 0;
+    boltGroup.userData.dropletOffsets = Array(12).fill(0).map(() => Math.random() * Math.PI * 2);
+
+    return boltGroup;
+}
+
 // Add fox update function
 function updateFoxes() {
     if (gameState.enemies.length === 0) {
@@ -3504,7 +3638,8 @@ function updateFoxes() {
     // Update foxes and check for seed collisions
     for (let i = gameState.enemies.length - 1; i >= 0; i--) {
         const enemy = gameState.enemies[i];
-        if (enemy.userData.type !== 'fox' && enemy.userData.type !== 'charmander' && enemy.userData.type !== 'pikachu') {
+        if (enemy.userData.type !== 'fox' && enemy.userData.type !== 'charmander' && 
+            enemy.userData.type !== 'pikachu' && enemy.userData.type !== 'squirtle') {
             continue;
         }
         
@@ -3526,7 +3661,8 @@ function updateFoxes() {
                     
                     // Create hit effect
                     createExplosion(enemy.position, enemy.userData.type === 'charmander' ? 0xFF4500 : 
-                        enemy.userData.type === 'pikachu' ? 0xFFFF00 : 0xff3300);
+                        enemy.userData.type === 'pikachu' ? 0xFFFF00 :
+                        enemy.userData.type === 'squirtle' ? 0x00BFFF : 0xff3300);
                     
                     // Play sound
                     playSound('hit');
@@ -3538,7 +3674,9 @@ function updateFoxes() {
                         gameState.enemies.splice(i, 1);
                         
                         // Add score
-                        const score = enemy.userData.type === 'charmander' || enemy.userData.type === 'pikachu' ? 300 : 200;
+                        const score = enemy.userData.type === 'charmander' || 
+                                    enemy.userData.type === 'pikachu' || 
+                                    enemy.userData.type === 'squirtle' ? 300 : 200;
                         gameState.score += score;
                         showScorePopup(score, enemy.position);
                     }
@@ -3582,8 +3720,8 @@ function updateFoxes() {
                 enemy.position.clone().sub(hamster.position)
             );
             enemy.lookAt(oppositePosition);
-        } else if (enemy.userData.type === 'pikachu') {
-            // Pikachu should face the player directly
+        } else if (enemy.userData.type === 'pikachu' || enemy.userData.type === 'squirtle') {
+            // Pikachu and Squirtle should face the player directly
             enemy.lookAt(hamster.position);
             // Add 180 degrees to make it face forward
             enemy.rotation.y += Math.PI;
@@ -3605,6 +3743,8 @@ function updateFoxes() {
             let projectile;
             if (enemy.userData.type === 'pikachu') {
                 projectile = createLightningBolt(bulletPosition, bulletDirection);
+            } else if (enemy.userData.type === 'squirtle') {
+                projectile = createWaterBlast(bulletPosition, bulletDirection);
             } else {
                 projectile = createFoxBullet(
                     bulletPosition, 
@@ -3987,6 +4127,62 @@ function gameLoop(currentTime) {
             }
             
             // Remove lightning bolts that go too far
+            if (projectile.position.distanceTo(hamster.position) > 50) {
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+        } else if (projectile.userData.type === 'waterBlast') {
+            // Water blast update
+            projectile.position.add(
+                projectile.velocity.clone().multiplyScalar(gameState.deltaTime)
+            );
+            
+            // Rotate the water stream
+            projectile.rotation.z += projectile.userData.rotationSpeed * gameState.deltaTime;
+            
+            // Animate water droplets and splash effect
+            projectile.userData.pulseTime += gameState.deltaTime * 15;
+            const pulse = Math.sin(projectile.userData.pulseTime) * 0.5 + 0.5;
+            
+            // Update droplets with individual animations
+            projectile.children.forEach((child, index) => {
+                if (child.material && child.material.opacity) {
+                    if (index < 12) { // Water droplets
+                        // Spiral motion
+                        const angle = ((projectile.userData.pulseTime * 0.5) + projectile.userData.dropletOffsets[index]);
+                        const radius = 0.4 + (index / 12) * 0.3;
+                        child.position.x = Math.cos(angle) * radius;
+                        child.position.z = Math.sin(angle) * radius;
+                        child.position.y = Math.sin(angle * 2) * 0.2;
+                        
+                        // Pulsing opacity
+                        child.material.opacity = 0.4 + pulse * 0.4;
+                        
+                        // Scale animation
+                        child.scale.setScalar(0.8 + pulse * 0.4);
+                    } else if (child.geometry instanceof THREE.CircleGeometry) { // Splash effect
+                        child.scale.setScalar(1 + pulse * 0.5);
+                        child.material.opacity = 0.3 + pulse * 0.3;
+                        child.rotation.z = projectile.userData.pulseTime * 0.5;
+                    }
+                }
+                if (child.isPointLight) {
+                    child.intensity = 2 + pulse * 2;
+                }
+            });
+            
+            // Check collision with player
+            if (!gameState.player.isInvulnerable && 
+                projectile.position.distanceTo(hamster.position) < 1.5) {
+                takeDamage(projectile.userData.damage);
+                createExplosion(projectile.position, 0x00BFFF);
+                scene.remove(projectile);
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+            
+            // Remove water blasts that go too far
             if (projectile.position.distanceTo(hamster.position) > 50) {
                 scene.remove(projectile);
                 gameState.projectiles.splice(i, 1);
