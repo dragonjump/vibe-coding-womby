@@ -9,6 +9,15 @@ import { AchievementManager } from './achievements.js';
 import { TerrainManager } from './terrain.js';
 import { CloudManager } from './clouds.js';
 
+// Audio system variables
+let audioContext;
+let audioListener;
+let soundBuffers = {};
+let musicGainNode;
+let currentMusicTrack;
+let backgroundMusicBuffer;
+let backgroundMusicSource;
+
 // Logger utility
 const Logger = {
     DEBUG: true,
@@ -147,8 +156,6 @@ const sounds = {
     shoot: new Audio('sounds/shoot.mp3'),
     jump: new Audio('sounds/jump.mp3')
 };
-
-// Note: playSound function is defined later in the file with full audio context implementation
 
 // Initialize game state
 const gameState = {
@@ -875,26 +882,79 @@ document.getElementById('startButton').addEventListener('click', () => {
 });
 
 // Sound setup
-const audioListener = new THREE.AudioListener();
-camera.add(audioListener);
+audioListener = null;
 
 // Create audio context and sounds
-let audioContext = null;
-let soundBuffers = {};
+audioContext = null;
+soundBuffers = {};
 
 // Function to initialize audio system
 function initAudioSystem() {
     try {
         // Create audio context
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioListener = new THREE.AudioListener();
         audioListener.context = audioContext;  // Ensure listener has context
         
         // Create sound buffers
         setupSynthSounds();
         
+        // Load background music
+        loadBackgroundMusic();
+        
         console.log('Audio system initialized successfully');
     } catch (error) {
         console.error('Failed to initialize audio system:', error);
+    }
+}
+
+function loadBackgroundMusic() {
+    if (!audioContext) {
+        console.warn('Audio context not initialized');
+        return;
+    }
+
+    fetch('assets/audio/rabuthemesong.mp3')
+        .then(response => response.arrayBuffer())
+        .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+        .then(audioBuffer => {
+            backgroundMusicBuffer = audioBuffer;
+            playBackgroundMusicLoop();
+        })
+        .catch(error => console.error('Error loading background music:', error));
+}
+
+function playBackgroundMusicLoop() {
+    if (!audioContext || !backgroundMusicBuffer) return;
+
+    try {
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
+        // Stop any existing background music
+        if (backgroundMusicSource) {
+            backgroundMusicSource.stop();
+        }
+
+        // Create new source and gain node
+        backgroundMusicSource = audioContext.createBufferSource();
+        backgroundMusicSource.buffer = backgroundMusicBuffer;
+        backgroundMusicSource.loop = true;
+
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.3; // Adjust volume as needed
+
+        // Connect nodes
+        backgroundMusicSource.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // Start playing
+        backgroundMusicSource.start(0);
+
+        console.log('Background music started successfully');
+    } catch (error) {
+        console.error('Error playing background music:', error);
     }
 }
 
@@ -1537,9 +1597,6 @@ document.getElementById('achievementsButton').addEventListener('click', () => {
     achievementsMenu.style.display = 'block';
 });
 
-let currentMusicTrack = null;
-let musicGainNode = null;
-
 // Create synth music
 function createMusicNote(frequency, time, gainNode) {
     if (!audioContext) return null;
@@ -1579,7 +1636,7 @@ function playBackgroundMusic(track) {
     
     if (!musicGainNode) {
         musicGainNode = audioContext.createGain();
-        musicGainNode.gain.value = 0.2; // Lower volume for background music
+        musicGainNode.gain.value = 0.012; // Lower volume for background music
         musicGainNode.connect(audioContext.destination);
     }
     
