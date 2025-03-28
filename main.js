@@ -382,23 +382,55 @@ scene.add(hamster);
 // Input handlers
 function handleKeyDown(event) {
     switch(event.key.toLowerCase()) {
-        case 'w': gameState.keys.forward = true; break;
-        case 's': gameState.keys.backward = true; break;
-        case 'a': gameState.keys.left = true; break;
-        case 'd': gameState.keys.right = true; break;
-        case ' ': gameState.keys.space = true; break;
-        case 'shift': gameState.keys.shift = true; break;
+        case 'w':
+        case 'arrowup':
+            gameState.keys.forward = true;
+            break;
+        case 's':
+        case 'arrowdown':
+            gameState.keys.backward = true;
+            break;
+        case 'a':
+        case 'arrowleft':
+            gameState.keys.left = true;
+            break;
+        case 'd':
+        case 'arrowright':
+            gameState.keys.right = true;
+            break;
+        case ' ':
+            gameState.keys.space = true;
+            break;
+        case 'shift':
+            gameState.keys.shift = true;
+            break;
     }
 }
 
 function handleKeyUp(event) {
     switch(event.key.toLowerCase()) {
-        case 'w': gameState.keys.forward = false; break;
-        case 's': gameState.keys.backward = false; break;
-        case 'a': gameState.keys.left = false; break;
-        case 'd': gameState.keys.right = false; break;
-        case ' ': gameState.keys.space = false; break;
-        case 'shift': gameState.keys.shift = false; break;
+        case 'w':
+        case 'arrowup':
+            gameState.keys.forward = false;
+            break;
+        case 's':
+        case 'arrowdown':
+            gameState.keys.backward = false;
+            break;
+        case 'a':
+        case 'arrowleft':
+            gameState.keys.left = false;
+            break;
+        case 'd':
+        case 'arrowright':
+            gameState.keys.right = false;
+            break;
+        case ' ':
+            gameState.keys.space = false;
+            break;
+        case 'shift':
+            gameState.keys.shift = false;
+            break;
     }
 }
 
@@ -433,7 +465,7 @@ menuContent.innerHTML = `
         margin-bottom: 20px;
         font-size: clamp(24px, 5vw, 36px);
         text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-    ">Rocket Womby Adventure</h1>
+    ">Rabu - Bear Adventure</h1>
     <div style="color: white; margin-bottom: 20px;">
         <h2 style="
             font-size: clamp(18px, 4vw, 24px);
@@ -534,7 +566,7 @@ menuContent.innerHTML = `
             text-align: left;
             font-size: 14px;
         ">
-            <span>WASD</span><span>- Move</span>
+            <span>WASD / Arrow Keys</span><span>- Move</span>
             <span>SPACE</span><span>- Jump</span>
             <span>SHIFT</span><span>- Rocket Boost</span>
             <span>LEFT CLICK</span><span>- Shoot Seeds</span>
@@ -5426,12 +5458,7 @@ const DINO_FACTS = [
         title: "Pterosaur - The Flying Reptile",
         fact: "Pterosaurs were the first vertebrates to achieve powered flight! Some species had wingspans of up to 33 feet - as wide as a small plane. They had hollow bones and were covered in hair-like fibers, making them perfectly adapted for flight.",
         image: "./src/data/Pterosaur.webp"
-    },
-    {
-        title: "Cubone - The Lonely Pokémon",
-        fact: "Cubone wears the skull of its deceased mother as a helmet, which has become its signature look. Despite its tragic origin story, it's known to be a brave and loyal Pokémon that fiercely protects its friends and trainer.",
-        image: "./src/data/Cubone.jpg"
-    },
+    }, 
     {
         title: "Pikachu - The Electric Mouse Pokémon",
         fact: "Pikachu stores electricity in its cheek pouches, which can generate powerful thunderbolts of up to 100,000 volts! Despite its immense power, Pikachu is known for its playful nature and strong bonds with human trainers.",
@@ -5543,3 +5570,34 @@ function createDinoFactPopup(fact) {
 
     return popup;
 }
+
+// Add custom scrollbar style
+const customScrollbarStyle = document.createElement('style');
+customScrollbarStyle.textContent = `
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #FFD700;
+        border-radius: 4px;
+        box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #FFA500;
+        box-shadow: 0 0 8px rgba(255, 165, 0, 0.7);
+    }
+
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: #FFD700 rgba(0, 0, 0, 0.3);
+    }
+`;
+document.head.appendChild(customScrollbarStyle);
