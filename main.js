@@ -5547,15 +5547,32 @@ function createDinoFactPopup(fact) {
         >Close</button>
     `;
 
-    // Add click handler to close button
-    const closeButton = popup.querySelector('button');
-    closeButton.onclick = () => {
+    // Create close function to reuse for both button and ESC key
+    const closePopup = () => {
         popup.style.opacity = '0';
         popup.style.transform = 'translate(-50%, -50%) scale(0.9)';
         setTimeout(() => {
-            document.body.removeChild(popup);
+            if (popup.parentNode) {
+                document.body.removeChild(popup);
+            }
+            // Remove the event listener when popup is closed
+            document.removeEventListener('keydown', handleEscKey);
         }, 300);
     };
+
+    // Handle ESC key press
+    const handleEscKey = (event) => {
+        if (event.key === 'Escape') {
+            closePopup();
+        }
+    };
+
+    // Add click handler to close button
+    const closeButton = popup.querySelector('button');
+    closeButton.onclick = closePopup;
+
+    // Add ESC key event listener when popup is created
+    document.addEventListener('keydown', handleEscKey);
 
     // Add fade-in animation
     popup.style.transition = 'all 0.3s ease';
