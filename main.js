@@ -1201,8 +1201,8 @@ function createCollectibleSeed(x, y, z) {
         seed.add(potionGroup);
     }
     
-    // Add thunder book with 75% chance
-    if (Math.random() < 0.75) {
+    // Add thunder book with 25% chance (reduced from 75%)
+    if (Math.random() < 0.25) {
         const bookGroup = new THREE.Group();
 
         // Book body - increased size by 5x
@@ -4964,29 +4964,39 @@ function createCabana(x, z) {
 // Add dinosaur facts array at the top of the file after imports
 const DINO_FACTS = [
     {
-        title: "Therizinosaurus - The Scythe Lizard",
-        fact: "This dinosaur had the longest claws of any known animal, measuring up to 3 feet in length! Despite its fearsome appearance, it was actually a plant-eater that used its claws to pull down tall branches.",
-        image: "./src/data/Therizinosaurus.webp"
+        title: "Tyrannosaurus Rex - The King of Dinosaurs",
+        fact: "T-Rex was one of the largest land carnivores of all time, measuring up to 40 feet in length and weighing up to 7 tons! Despite its fierce reputation, scientists believe it was also a very intelligent predator with excellent vision and sense of smell.",
+        image: "./src/data/Trex.webp"
     },
     {
-        title: "Megalodon - The Ancient Shark",
-        fact: "The Megalodon was the largest shark that ever lived, with teeth the size of a human hand! It could grow up to 60 feet long - that's longer than a school bus!",
-        image: "./src/data/Megalodon.jpg"
+        title: "Triceratops - The Three-Horned Face",
+        fact: "Triceratops had three horns and a large bony frill protecting its neck. These features weren't just for defense - they were also used for species recognition and competition between males, similar to modern deer antlers!",
+        image: "./src/data/Triceratops.webp"
     },
     {
-        title: "Quetzalcoatlus - The Sky Giant",
-        fact: "This flying reptile was as tall as a giraffe when standing on the ground and had a wingspan wider than a small plane! It's the largest flying animal ever discovered.",
-        image: "./src/data/Quetzalcoatlus_Render.webp"
+        title: "Pterosaur - The Flying Reptile",
+        fact: "Pterosaurs were the first vertebrates to achieve powered flight! Some species had wingspans of up to 33 feet - as wide as a small plane. They had hollow bones and were covered in hair-like fibers, making them perfectly adapted for flight.",
+        image: "./src/data/Pterosaur.webp"
     },
     {
-        title: "Dunkleosteus - The Armored Fish",
-        fact: "This ancient fish had a bite force of 8,000 pounds per square inch - stronger than a T-Rex! Instead of teeth, it had sharp bony plates that acted like scissors.",
-        image: "./src/data/Dunkleosteus.webp"
+        title: "Cubone - The Lonely Pokémon",
+        fact: "Cubone wears the skull of its deceased mother as a helmet, which has become its signature look. Despite its tragic origin story, it's known to be a brave and loyal Pokémon that fiercely protects its friends and trainer.",
+        image: "./src/data/Cubone.jpg"
     },
     {
-        title: "Argentavis - The Giant Bird",
-        fact: "This prehistoric bird had a wingspan of 23 feet - wider than a small aircraft! It was the largest flying bird ever known and could weigh up to 170 pounds.",
-        image: "./src/data/Argentavis.JPG"
+        title: "Pikachu - The Electric Mouse Pokémon",
+        fact: "Pikachu stores electricity in its cheek pouches, which can generate powerful thunderbolts of up to 100,000 volts! Despite its immense power, Pikachu is known for its playful nature and strong bonds with human trainers.",
+        image: "./src/data/Pikachu.jpg"
+    },
+    {
+        title: "Charmander - The Flame Pokémon",
+        fact: "The flame on Charmander's tail is a measure of its life force and emotions. When healthy, the flame burns brightly, and it's said that if the flame goes out, Charmander would lose its life energy. It evolves into the powerful Charizard!",
+        image: "./src/data/Charmander.png"
+    },
+    {
+        title: "Squirtle - The Tiny Turtle Pokémon",
+        fact: "Squirtle's shell isn't just for protection - it helps reduce water resistance when swimming, allowing it to move through water at incredible speeds. When it feels threatened, it can withdraw into its shell and spray powerful jets of water!",
+        image: "./src/data/Squirtle.png"
     }
 ];
 
@@ -5001,7 +5011,7 @@ function createDinoFactPopup(fact) {
     popup.style.color = 'white';
     popup.style.padding = '25px';
     popup.style.borderRadius = '15px';
-    popup.style.maxWidth = '500px'; // Increased to accommodate image
+    popup.style.maxWidth = '500px';
     popup.style.width = '90%';
     popup.style.maxHeight = '90vh';
     popup.style.overflowY = 'auto';
@@ -5020,18 +5030,22 @@ function createDinoFactPopup(fact) {
         ">${fact.title}</h2>
         <div style="
             width: 100%;
-            height: 250px;
+            padding-top: 75%; /* 4:3 Aspect Ratio */
             margin-bottom: 20px;
             border-radius: 10px;
-            overflow: hidden;
             position: relative;
             box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+            overflow: hidden;
         ">
             <img src="${fact.image}" style="
+                position: absolute;
+                top: 0;
+                left: 0;
                 width: 100%;
                 height: 100%;
-                object-fit: cover;
+                object-fit: contain;
                 border-radius: 8px;
+                background-color: rgba(0, 0, 0, 0.2);
             " onerror="this.style.display='none'">
         </div>
         <p style="
