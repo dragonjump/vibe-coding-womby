@@ -9,45 +9,6 @@ import { AchievementManager } from './achievements.js';
 import { TerrainManager } from './terrain.js';
 import { CloudManager } from './clouds.js';
 
-// Define dinosaur facts array
-const DINO_FACTS = [
-    {
-        title: "Tyrannosaurus Rex - The King of Dinosaurs",
-        fact: "T-Rex was one of the largest land carnivores of all time, measuring up to 40 feet in length and weighing up to 7 tons! Despite its fierce reputation, scientists believe it was also a very intelligent predator with excellent vision and sense of smell.",
-        image: "./src/data/Trex.webp"
-    },
-    {
-        title: "Triceratops - The Three-Horned Face",
-        fact: "Triceratops had three horns and a large bony frill protecting its neck. These features weren't just for defense - they were also used for species recognition and competition between males, similar to modern deer antlers!",
-        image: "./src/data/Triceratops.webp"
-    },
-    {
-        title: "Pterosaur - The Flying Reptile",
-        fact: "Pterosaurs were the first vertebrates to achieve powered flight! Some species had wingspans of up to 33 feet - as wide as a small plane. They had hollow bones and were covered in hair-like fibers, making them perfectly adapted for flight.",
-        image: "./src/data/Pterosaur.webp"
-    },
-    {
-        title: "Cubone - The Lonely Pokémon",
-        fact: "Cubone wears the skull of its deceased mother as a helmet, which has become its signature look. Despite its tragic origin story, it's known to be a brave and loyal Pokémon that fiercely protects its friends and trainer.",
-        image: "./src/data/Cubone.jpg"
-    },
-    {
-        title: "Pikachu - The Electric Mouse Pokémon",
-        fact: "Pikachu stores electricity in its cheek pouches, which can generate powerful thunderbolts of up to 100,000 volts! Despite its immense power, Pikachu is known for its playful nature and strong bonds with human trainers.",
-        image: "./src/data/Pikachu.jpg"
-    },
-    {
-        title: "Charmander - The Flame Pokémon",
-        fact: "The flame on Charmander's tail is a measure of its life force and emotions. When healthy, the flame burns brightly, and it's said that if the flame goes out, Charmander would lose its life energy. It evolves into the powerful Charizard!",
-        image: "./src/data/Charmander.png"
-    },
-    {
-        title: "Squirtle - The Tiny Turtle Pokémon",
-        fact: "Squirtle's shell isn't just for protection - it helps reduce water resistance when swimming, allowing it to move through water at incredible speeds. When it feels threatened, it can withdraw into its shell and spray powerful jets of water!",
-        image: "./src/data/Squirtle.png"
-    }
-];
-
 // Logger utility
 const Logger = {
     DEBUG: true,
@@ -2333,37 +2294,37 @@ function resetGame() {
         let enemy;
         const enemyType = Math.random();
         
-        // 15% chance each for Fox, T-Rex, Triceratops, Pterosaur, Charmander, Pikachu, and Squirtle
-        if (enemyType < 0.15) {
+        // 20% chance of Fox, 15% chance of T-Rex, 10% chance of Triceratops, 5% chance of Pterosaur, 50% chance of Charmander
+        if (enemyType < 0.20) {
             enemy = createFox();
             Logger.game('Spawning Fox');
-        } else if (enemyType < 0.30) {
+        } else if (enemyType < 0.35) {
             enemy = createTRex();
             Logger.game('Spawning T-Rex');
         } else if (enemyType < 0.45) {
             enemy = createTriceratops();
             Logger.game('Spawning Triceratops');
-        } else if (enemyType < 0.60) {
+        } else if (enemyType < 0.50) {
             enemy = createPterosaur();
             Logger.game('Spawning Pterosaur');
-        } else if (enemyType < 0.75) {
+        } else {
             // Create a temporary cube as placeholder while model loads
-            const tempGeometry = new THREE.BoxGeometry(2, 2, 2);
+            const tempGeometry = new THREE.BoxGeometry(2, 2, 2); // Increased size from 1,1,1
             const tempMaterial = new THREE.MeshPhongMaterial({ color: 0xFF4500 }); // Orange-red for Charmander
             const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
             tempMesh.visible = false;
             
-            // Add Charmander properties
+            // Add Charmander properties - matching fox pattern
             tempMesh.userData.type = 'charmander';
-            tempMesh.userData.health = 3;
-            tempMesh.userData.maxHealth = 3;
+            tempMesh.userData.health = 5;
+            tempMesh.userData.maxHealth = 5;
             tempMesh.userData.shootTimer = 0;
             tempMesh.userData.shootInterval = 1.5;
-            tempMesh.userData.moveSpeed = 5;
+            tempMesh.userData.moveSpeed = 7;
             tempMesh.userData.state = 'chase';
-            tempMesh.userData.chaseDistance = 40;
-            tempMesh.userData.retreatDistance = 10;
-            tempMesh.userData.damage = 15;
+            tempMesh.userData.chaseDistance = 50;
+            tempMesh.userData.retreatDistance = 8;
+            tempMesh.userData.damage = 20;
 
             // Load the Charmander model
             const loader = new GLTFLoader();
@@ -2371,12 +2332,13 @@ function resetGame() {
                 const charmander = gltf.scene;
                 
                 // Scale and position - increased size
-                charmander.scale.set(4.1, 4.1, 4.1);
+                charmander.scale.set(1.5, 1.5, 1.5); // Made even bigger
                 charmander.position.copy(tempMesh.position);
-                // Make Charmander face backward
+                
+                // Add 180-degree rotation to face the player
                 charmander.rotation.y = Math.PI;
                 
-                // Enable shadows and add glow effect
+                // Enable shadows and add stronger glow effect
                 charmander.traverse((child) => {
                     if (child.isMesh) {
                         child.castShadow = true;
@@ -2384,14 +2346,14 @@ function resetGame() {
                         
                         if (child.material) {
                             child.material.emissive = new THREE.Color(0xFF4500);
-                            child.material.emissiveIntensity = 0.3; // Increased from 0.3
+                            child.material.emissiveIntensity = 0.5;
                         }
                     }
                 });
                 
                 // Add flame effect
-                const flameLight = new THREE.PointLight(0xFF4500, 1, 3);
-                flameLight.position.set(0, 1, 0);
+                const flameLight = new THREE.PointLight(0xFF4500, 2, 5);
+                flameLight.position.set(0, 2, 0);
                 charmander.add(flameLight);
                 
                 // Replace temp mesh with Charmander model
@@ -2420,154 +2382,6 @@ function resetGame() {
 
             enemy = tempMesh;
             Logger.game('Spawning Charmander');
-        } else if (enemyType < 0.90) {
-            // Create a temporary cube as placeholder while model loads
-            const tempGeometry = new THREE.BoxGeometry(2, 2, 2);
-            const tempMaterial = new THREE.MeshPhongMaterial({ color: 0xFFD700 }); // Yellow for Pikachu
-            const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
-            tempMesh.visible = false;
-            
-            // Add Pikachu properties
-            tempMesh.userData.type = 'pikachu';
-            tempMesh.userData.health = 4;
-            tempMesh.userData.maxHealth = 4;
-            tempMesh.userData.shootTimer = 0;
-            tempMesh.userData.shootInterval = 2.0;
-            tempMesh.userData.moveSpeed = 7;
-            tempMesh.userData.state = 'chase';
-            tempMesh.userData.chaseDistance = 35;
-            tempMesh.userData.retreatDistance = 8;
-            tempMesh.userData.damage = 18;
-
-            // Load the Pikachu model
-            const loader = new GLTFLoader();
-            loader.load('assets/models/Pikachu.glb', (gltf) => {
-                const pikachu = gltf.scene;
-                
-                // Scale and position
-                pikachu.scale.set(3.5, 3.5, 3.5);
-                pikachu.position.copy(tempMesh.position);
-                // Make Pikachu face backward
-                pikachu.rotation.y = Math.PI;
-                
-                // Enable shadows and add electric glow effect
-                pikachu.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                        
-                        if (child.material) {
-                            child.material.emissive = new THREE.Color(0xFFD700);
-                            child.material.emissiveIntensity = 0.4;
-                        }
-                    }
-                });
-                
-                // Add electric effect
-                const electricLight = new THREE.PointLight(0xFFD700, 1.2, 4);
-                electricLight.position.set(0, 1, 0);
-                pikachu.add(electricLight);
-                
-                // Replace temp mesh with Pikachu model
-                if (tempMesh.parent) {
-                    const index = gameState.enemies.indexOf(tempMesh);
-                    if (index !== -1) {
-                        gameState.enemies[index] = pikachu;
-                    }
-                    tempMesh.parent.add(pikachu);
-                    tempMesh.parent.remove(tempMesh);
-                    
-                    // Transfer properties
-                    pikachu.userData = { ...tempMesh.userData };
-                }
-                
-                Logger.game('Pikachu model loaded successfully', {
-                    type: pikachu.userData.type,
-                    health: pikachu.userData.health,
-                    interval: pikachu.userData.shootInterval,
-                    speed: pikachu.userData.moveSpeed
-                });
-            }, undefined, (error) => {
-                console.error('Error loading Pikachu model:', error);
-                tempMesh.visible = true;
-            });
-
-            enemy = tempMesh;
-            Logger.game('Spawning Pikachu');
-        } else {
-            // Create a temporary cube as placeholder while model loads
-            const tempGeometry = new THREE.BoxGeometry(2, 2, 2);
-            const tempMaterial = new THREE.MeshPhongMaterial({ color: 0x00BFFF }); // Deep Sky Blue for Squirtle
-            const tempMesh = new THREE.Mesh(tempGeometry, tempMaterial);
-            tempMesh.visible = false;
-            
-            // Add Squirtle properties
-            tempMesh.userData.type = 'squirtle';
-            tempMesh.userData.health = 4;
-            tempMesh.userData.maxHealth = 4;
-            tempMesh.userData.shootTimer = 0;
-            tempMesh.userData.shootInterval = 1.8;
-            tempMesh.userData.moveSpeed = 6;
-            tempMesh.userData.state = 'chase';
-            tempMesh.userData.chaseDistance = 30;
-            tempMesh.userData.retreatDistance = 10;
-            tempMesh.userData.damage = 16;
-
-            // Load the Squirtle model
-            const loader = new GLTFLoader();
-            loader.load('assets/models/Squirtle.glb', (gltf) => {
-                const squirtle = gltf.scene;
-                
-                // Scale and position
-                squirtle.scale.set(4.8, 4.8, 4.8);
-                squirtle.position.copy(tempMesh.position);
-                // Make Squirtle face backward initially
-                squirtle.rotation.y = Math.PI;
-                
-                // Enable shadows and add water glow effect
-                squirtle.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                        
-                        if (child.material) {
-                            child.material.emissive = new THREE.Color(0x00BFFF);
-                            child.material.emissiveIntensity = 0.3;
-                        }
-                    }
-                });
-                
-                // Add water effect
-                const waterLight = new THREE.PointLight(0x00BFFF, 1.0, 3);
-                waterLight.position.set(0, 1, 0);
-                squirtle.add(waterLight);
-                
-                // Replace temp mesh with Squirtle model
-                if (tempMesh.parent) {
-                    const index = gameState.enemies.indexOf(tempMesh);
-                    if (index !== -1) {
-                        gameState.enemies[index] = squirtle;
-                    }
-                    tempMesh.parent.add(squirtle);
-                    tempMesh.parent.remove(tempMesh);
-                    
-                    // Transfer properties
-                    squirtle.userData = { ...tempMesh.userData };
-                }
-                
-                Logger.game('Squirtle model loaded successfully', {
-                    type: squirtle.userData.type,
-                    health: squirtle.userData.health,
-                    interval: squirtle.userData.shootInterval,
-                    speed: squirtle.userData.moveSpeed
-                });
-            }, undefined, (error) => {
-                console.error('Error loading Squirtle model:', error);
-                tempMesh.visible = true;
-            });
-
-            enemy = tempMesh;
-            Logger.game('Spawning Squirtle');
         }
         
         // Position enemies in a circle around the player
@@ -2670,7 +2484,7 @@ function createPowerUpMesh(powerUpType) {
         transparent: true,
         opacity: 0.3
     });
-    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     group.add(glow);
     
     // Particles
@@ -3561,11 +3375,47 @@ function updateFoxes() {
     // Update foxes and check for seed collisions
     for (let i = gameState.enemies.length - 1; i >= 0; i--) {
         const enemy = gameState.enemies[i];
-        if (!enemy || !enemy.userData || (enemy.userData.type !== 'fox' && 
-            enemy.userData.type !== 'charmander' && 
-            enemy.userData.type !== 'pikachu' && 
-            enemy.userData.type !== 'squirtle')) {
+        if (enemy.userData.type !== 'fox' && enemy.userData.type !== 'charmander') {
             continue;
+        }
+        
+        // Check for seed collisions first
+        for (let j = gameState.projectiles.length - 1; j >= 0; j--) {
+            const projectile = gameState.projectiles[j];
+            // Only check actual seeds (not particles or enemy bullets)
+            if (!projectile.lifetime && !projectile.userData.type) {
+                if (projectile.position.distanceTo(enemy.position) < 1.5) {
+                    // Reduce health
+                    enemy.userData.health -= 1;
+                    
+                    // Show health indicator
+                    showEnemyHealthIndicator(enemy);
+                    
+                    // Remove the seed
+                    scene.remove(projectile);
+                    gameState.projectiles.splice(j, 1);
+                    
+                    // Create hit effect
+                    createExplosion(enemy.position, enemy.userData.type === 'charmander' ? 0xFF4500 : 0xff3300);
+                    
+                    // Play sound
+                    playSound('hit');
+                    
+                    // Check if enemy is defeated
+                    if (enemy.userData.health <= 0) {
+                        // Remove the enemy
+                        scene.remove(enemy);
+                        gameState.enemies.splice(i, 1);
+                        
+                        // Add score
+                        const score = enemy.userData.type === 'charmander' ? 300 : 200;
+                        gameState.score += score;
+                        showScorePopup(score, enemy.position);
+                    }
+                    
+                    return; // Skip rest of update for this frame
+                }
+            }
         }
         
         // Update shoot timer
@@ -3592,25 +3442,18 @@ function updateFoxes() {
             enemy.position.add(direction.multiplyScalar(enemy.userData.moveSpeed * gameState.deltaTime));
         }
         
-        // Keep enemy at proper height - adjusted for better terrain following
-        const groundHeight = terrainManager.getHeight(enemy.position.x, enemy.position.z);
-        const targetHeight = groundHeight + 1; // Keep 1 unit above ground
+        // Keep enemy at proper height
+        enemy.position.y = terrainManager.getHeight(enemy.position.x, enemy.position.z) + 1;
         
-        // Smoothly adjust height to follow terrain
-        enemy.position.y += (targetHeight - enemy.position.y) * 0.1;
-        
-        // Ensure minimum height
-        if (enemy.position.y < targetHeight) {
-            enemy.position.y = targetHeight;
-        }
-        
-        // Rotate to face player
-        const lookAtPos = new THREE.Vector3(hamster.position.x, enemy.position.y, hamster.position.z);
-        enemy.lookAt(lookAtPos);
-        
-        // Add additional rotation for Pokemon to correct their facing direction
-        if (enemy.userData.type === 'pikachu' || enemy.userData.type === 'charmander' || enemy.userData.type === 'squirtle') {
-            enemy.rotation.y += Math.PI;
+        // Make enemy face the player with special handling for Charmander
+        if (enemy.userData.type === 'charmander') {
+            // Create a target position that's on the opposite side of the enemy from the player
+            const oppositePosition = enemy.position.clone().add(
+                enemy.position.clone().sub(hamster.position)
+            );
+            enemy.lookAt(oppositePosition);
+        } else {
+            enemy.lookAt(hamster.position);
         }
         
         // Shooting logic
@@ -3624,245 +3467,14 @@ function updateFoxes() {
                 .subVectors(hamster.position, bulletPosition)
                 .normalize();
             
-            let bullet;
-            switch(enemy.userData.type) {
-                case 'pikachu':
-                    bullet = createElectricBolt(bulletPosition, bulletDirection);
-                    break;
-                case 'squirtle':
-                    bullet = createWaterBlast(bulletPosition, bulletDirection);
-                    break;
-                case 'charmander':
-                    bullet = createFireBlast(bulletPosition, bulletDirection);
-                    bullet.material.color.setHex(0xFF4500);
-                    break;
-                default:
-                    bullet = createFoxBullet(bulletPosition, bulletDirection);
-            }
-            
+            const bullet = createFoxBullet(bulletPosition, bulletDirection);
             scene.add(bullet);
             gameState.projectiles.push(bullet);
             
             // Play shoot sound
             playSound('shoot');
         }
-        
-        // Check for seed collisions
-        for (let j = gameState.projectiles.length - 1; j >= 0; j--) {
-            const projectile = gameState.projectiles[j];
-            if (!projectile.lifetime && !projectile.userData.type) {
-                if (projectile.position.distanceTo(enemy.position) < 1.5) {
-                    enemy.userData.health -= 1;
-                    showEnemyHealthIndicator(enemy);
-                    
-                    scene.remove(projectile);
-                    gameState.projectiles.splice(j, 1);
-                    
-                    // Create hit effect based on enemy type
-                    let explosionColor;
-                    switch(enemy.userData.type) {
-                        case 'charmander':
-                            explosionColor = 0xFF4500;
-                            break;
-                        case 'pikachu':
-                            explosionColor = 0xFFD700;
-                            break;
-                        case 'squirtle':
-                            explosionColor = 0x00BFFF;
-                            break;
-                        default:
-                            explosionColor = 0xff3300;
-                    }
-                    createExplosion(enemy.position, explosionColor);
-                    
-                    playSound('hit');
-                    
-                    if (enemy.userData.health <= 0) {
-                        scene.remove(enemy);
-                        gameState.enemies.splice(i, 1);
-                        
-                        let score;
-                        switch(enemy.userData.type) {
-                            case 'charmander':
-                                score = 250;
-                                break;
-                            case 'pikachu':
-                                score = 300;
-                                break;
-                            case 'squirtle':
-                                score = 275;
-                                break;
-                            default:
-                                score = 200;
-                        }
-                        gameState.score += score;
-                        showScorePopup(score, enemy.position);
-                    }
-                    break;
-                }
-            }
-        }
     }
-}
-
-// Create electric bolt for Pikachu's attack
-function createElectricBolt(position, direction) {
-    const geometry = new THREE.SphereGeometry(0.3, 8, 8);
-    const material = new THREE.MeshStandardMaterial({
-        color: 0xFFFF00,
-        emissive: 0xFFFF00,
-        emissiveIntensity: 0.8
-    });
-    const bolt = new THREE.Mesh(geometry, material);
-    bolt.position.copy(position);
-    
-    // Add lightning effect
-    const lightningGeometry = new THREE.CylinderGeometry(0.1, 0.1, 1, 4);
-    const lightningMaterial = new THREE.MeshBasicMaterial({
-        color: 0xFFFF00,
-        transparent: true,
-        opacity: 0.6
-    });
-    const lightning = new THREE.Mesh(lightningGeometry, lightningMaterial);
-    lightning.rotation.x = Math.PI / 2;
-    bolt.add(lightning);
-    
-    // Add point light for glow effect
-    const light = new THREE.PointLight(0xFFFF00, 2, 3);
-    bolt.add(light);
-    
-    bolt.velocity = direction.normalize().multiplyScalar(35);
-    bolt.userData.type = 'electricBolt';
-    bolt.userData.damage = 20;
-    
-    // Add animation properties
-    bolt.userData.animationOffset = Math.random() * Math.PI * 2;
-    
-    // Animate the lightning effect
-    function animateLightning() {
-        if (!bolt.parent) return; // Stop if bolt is removed
-        
-        const time = Date.now() * 0.003;
-        lightning.rotation.z = Math.sin(time + bolt.userData.animationOffset) * Math.PI;
-        lightning.scale.y = 1 + Math.sin(time * 2 + bolt.userData.animationOffset) * 0.2;
-        
-        requestAnimationFrame(animateLightning);
-    }
-    animateLightning();
-    
-    return bolt;
-}
-
-// Create fire blast for Charmander's attack
-function createFireBlast(position, direction) {
-    const geometry = new THREE.SphereGeometry(0.4, 8, 8);
-    const material = new THREE.MeshStandardMaterial({
-        color: 0xFF4500,
-        emissive: 0xFF4500,
-        emissiveIntensity: 0.8,
-        transparent: true,
-        opacity: 0.9
-    });
-    const blast = new THREE.Mesh(geometry, material);
-    blast.position.copy(position);
-    
-    // Add flame effect
-    const flameGeometry = new THREE.ConeGeometry(0.3, 1.2, 8);
-    const flameMaterial = new THREE.MeshBasicMaterial({
-        color: 0xFF6600,
-        transparent: true,
-        opacity: 0.6
-    });
-    const flame = new THREE.Mesh(flameGeometry, flameMaterial);
-    flame.rotation.x = Math.PI / 2;
-    blast.add(flame);
-    
-    // Add ember particles
-    for (let i = 0; i < 6; i++) {
-        const ember = new THREE.Mesh(
-            new THREE.SphereGeometry(0.1, 4, 4),
-            new THREE.MeshBasicMaterial({
-                color: 0xFF8C00,
-                transparent: true,
-                opacity: 0.7
-            })
-        );
-        const angle = (i / 6) * Math.PI * 2;
-        ember.position.set(
-            Math.cos(angle) * 0.3,
-            Math.sin(angle) * 0.3,
-            0
-        );
-        blast.add(ember);
-    }
-    
-    // Add point light for fire glow
-    const fireLight = new THREE.PointLight(0xFF4500, 2, 3);
-    blast.add(fireLight);
-    
-    blast.velocity = direction.normalize().multiplyScalar(35);
-    blast.userData.type = 'fireBlast';
-    blast.userData.damage = 18;
-    
-    // Add animation properties
-    blast.userData.animationOffset = Math.random() * Math.PI * 2;
-    
-    // Animate the fire effect
-    function animateFire() {
-        if (!blast.parent) return; // Stop if blast is removed
-        
-        const time = Date.now() * 0.003;
-        flame.rotation.z = time + blast.userData.animationOffset;
-        flame.scale.setScalar(0.8 + Math.sin(time * 3) * 0.2);
-        
-        // Animate embers
-        blast.children.forEach((child, index) => {
-            if (child.geometry.type === 'SphereGeometry' && child !== flame) {
-                child.position.y = Math.sin(time * 4 + index) * 0.2;
-                child.material.opacity = 0.5 + Math.sin(time * 3 + index) * 0.3;
-                // Change ember colors
-                child.material.color.setHSL(0.05 + Math.sin(time * 2 + index) * 0.05, 1, 0.5);
-            }
-        });
-        
-        requestAnimationFrame(animateFire);
-    }
-    animateFire();
-    
-    return blast;
-}
-
-// Modify the shooting logic in updateFoxes function to include Charmander's fire blast
-if (enemy.userData.shootTimer >= enemy.userData.shootInterval) {
-    enemy.userData.shootTimer = 0;
-    
-    const bulletPosition = enemy.position.clone();
-    bulletPosition.y += 0.5;
-    
-    const bulletDirection = new THREE.Vector3()
-        .subVectors(hamster.position, bulletPosition)
-        .normalize();
-    
-    let bullet;
-    switch(enemy.userData.type) {
-        case 'pikachu':
-            bullet = createElectricBolt(bulletPosition, bulletDirection);
-            break;
-        case 'squirtle':
-            bullet = createWaterBlast(bulletPosition, bulletDirection);
-            break;
-        case 'charmander':
-            bullet = createFireBlast(bulletPosition, bulletDirection);
-            break;
-        default:
-            bullet = createFoxBullet(bulletPosition, bulletDirection);
-    }
-    
-    scene.add(bullet);
-    gameState.projectiles.push(bullet);
-    
-    // Play shoot sound
-    playSound('shoot');
 }
 
 function takeDamage(amount) {
@@ -4770,11 +4382,6 @@ function updateDinosaurs() {
         // Rotate to face player
         dino.lookAt(hamster.position);
         
-        // Add additional rotation for Pikachu and Charmander to correct their facing direction
-        if (dino.userData.type === 'pikachu' || dino.userData.type === 'charmander') {
-            dino.rotation.y += Math.PI; // Add 180 degrees to make them face the player
-        }
-        
         // Shooting logic
         if (dino.userData.shootTimer >= dino.userData.shootInterval) {
             dino.userData.shootTimer = 0;
@@ -5421,6 +5028,45 @@ function createCabana(x, z) {
     return cabana;
 }
 
+// Add dinosaur facts array at the top of the file after imports
+const DINO_FACTS = [
+    {
+        title: "Tyrannosaurus Rex - The King of Dinosaurs",
+        fact: "T-Rex was one of the largest land carnivores of all time, measuring up to 40 feet in length and weighing up to 7 tons! Despite its fierce reputation, scientists believe it was also a very intelligent predator with excellent vision and sense of smell.",
+        image: "./src/data/Trex.webp"
+    },
+    {
+        title: "Triceratops - The Three-Horned Face",
+        fact: "Triceratops had three horns and a large bony frill protecting its neck. These features weren't just for defense - they were also used for species recognition and competition between males, similar to modern deer antlers!",
+        image: "./src/data/Triceratops.webp"
+    },
+    {
+        title: "Pterosaur - The Flying Reptile",
+        fact: "Pterosaurs were the first vertebrates to achieve powered flight! Some species had wingspans of up to 33 feet - as wide as a small plane. They had hollow bones and were covered in hair-like fibers, making them perfectly adapted for flight.",
+        image: "./src/data/Pterosaur.webp"
+    },
+    {
+        title: "Cubone - The Lonely Pokémon",
+        fact: "Cubone wears the skull of its deceased mother as a helmet, which has become its signature look. Despite its tragic origin story, it's known to be a brave and loyal Pokémon that fiercely protects its friends and trainer.",
+        image: "./src/data/Cubone.jpg"
+    },
+    {
+        title: "Pikachu - The Electric Mouse Pokémon",
+        fact: "Pikachu stores electricity in its cheek pouches, which can generate powerful thunderbolts of up to 100,000 volts! Despite its immense power, Pikachu is known for its playful nature and strong bonds with human trainers.",
+        image: "./src/data/Pikachu.jpg"
+    },
+    {
+        title: "Charmander - The Flame Pokémon",
+        fact: "The flame on Charmander's tail is a measure of its life force and emotions. When healthy, the flame burns brightly, and it's said that if the flame goes out, Charmander would lose its life energy. It evolves into the powerful Charizard!",
+        image: "./src/data/Charmander.png"
+    },
+    {
+        title: "Squirtle - The Tiny Turtle Pokémon",
+        fact: "Squirtle's shell isn't just for protection - it helps reduce water resistance when swimming, allowing it to move through water at incredible speeds. When it feels threatened, it can withdraw into its shell and spray powerful jets of water!",
+        image: "./src/data/Squirtle.png"
+    }
+];
+
 // Create popup for dinosaur facts
 function createDinoFactPopup(fact) {
     const popup = document.createElement('div');
@@ -5441,8 +5087,6 @@ function createDinoFactPopup(fact) {
     popup.style.fontFamily = 'Arial, sans-serif';
     popup.style.border = '3px solid #FFD700';
     popup.style.boxShadow = '0 0 30px rgba(255, 215, 0, 0.4)';
-    // Add smooth scroll behavior
-    popup.style.scrollBehavior = 'smooth';
 
     popup.innerHTML = `
         <h2 style="
@@ -5517,160 +5161,3 @@ function createDinoFactPopup(fact) {
 
     return popup;
 }
-
-// Add custom scrollbar styles to the document
-document.head.insertAdjacentHTML('beforeend', `
-    <style>
-        /* Custom scrollbar styles */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
-            transition: background 0.2s ease;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.5);
-        }
-        
-        /* For Firefox */
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
-        }
-    </style>
-`);
-
-// Create water blast for Squirtle's attack
-function createWaterBlast(position, direction) {
-    const geometry = new THREE.SphereGeometry(0.4, 8, 8);
-    const material = new THREE.MeshStandardMaterial({
-        color: 0x00BFFF,
-        emissive: 0x00BFFF,
-        emissiveIntensity: 0.6,
-        transparent: true,
-        opacity: 0.8
-    });
-    const blast = new THREE.Mesh(geometry, material);
-    blast.position.copy(position);
-    
-    // Add water splash effect
-    const splashGeometry = new THREE.RingGeometry(0.2, 0.4, 12);
-    const splashMaterial = new THREE.MeshBasicMaterial({
-        color: 0x00BFFF,
-        transparent: true,
-        opacity: 0.4,
-        side: THREE.DoubleSide
-    });
-    const splash = new THREE.Mesh(splashGeometry, splashMaterial);
-    splash.rotation.x = Math.PI / 2;
-    blast.add(splash);
-    
-    // Add water droplet particles
-    for (let i = 0; i < 4; i++) {
-        const droplet = new THREE.Mesh(
-            new THREE.SphereGeometry(0.1, 4, 4),
-            new THREE.MeshBasicMaterial({
-                color: 0x00BFFF,
-                transparent: true,
-                opacity: 0.6
-            })
-        );
-        const angle = (i / 4) * Math.PI * 2;
-        droplet.position.set(
-            Math.cos(angle) * 0.3,
-            Math.sin(angle) * 0.3,
-            0
-        );
-        blast.add(droplet);
-    }
-    
-    // Add point light for water glow
-    const waterLight = new THREE.PointLight(0x00BFFF, 1.5, 2);
-    blast.add(waterLight);
-    
-    blast.velocity = direction.normalize().multiplyScalar(32);
-    blast.userData.type = 'waterBlast';
-    blast.userData.damage = 16;
-    
-    // Add animation properties
-    blast.userData.animationOffset = Math.random() * Math.PI * 2;
-    
-    // Animate the splash effect
-    function animateSplash() {
-        if (!blast.parent) return; // Stop if blast is removed
-        
-        const time = Date.now() * 0.003;
-        splash.rotation.z = time + blast.userData.animationOffset;
-        splash.scale.setScalar(0.8 + Math.sin(time * 2) * 0.2);
-        
-        // Animate droplets
-        blast.children.forEach((child, index) => {
-            if (child.geometry.type === 'SphereGeometry' && child !== splash) {
-                child.position.y = Math.sin(time * 3 + index) * 0.2;
-                child.material.opacity = 0.4 + Math.sin(time * 2 + index) * 0.2;
-            }
-        });
-        
-        requestAnimationFrame(animateSplash);
-    }
-    animateSplash();
-    
-    return blast;
-}
-
-// Modify the shooting logic in updateFoxes function to include Squirtle's water blast
-if (enemy.userData.shootTimer >= enemy.userData.shootInterval) {
-    enemy.userData.shootTimer = 0;
-    
-    const bulletPosition = enemy.position.clone();
-    bulletPosition.y += 0.5;
-    
-    const bulletDirection = new THREE.Vector3()
-        .subVectors(hamster.position, bulletPosition)
-        .normalize();
-    
-    let bullet;
-    if (enemy.userData.type === 'pikachu') {
-        // Create electric bolt for Pikachu
-        bullet = createElectricBolt(bulletPosition, bulletDirection);
-    } else if (enemy.userData.type === 'squirtle') {
-        // Create water blast for Squirtle
-        bullet = createWaterBlast(bulletPosition, bulletDirection);
-    } else {
-        // Regular bullet for other enemies
-        bullet = createFoxBullet(bulletPosition, bulletDirection);
-    }
-    
-    scene.add(bullet);
-    gameState.projectiles.push(bullet);
-    
-    // Play shoot sound
-    playSound('shoot');
-}
-
-// Modify the explosion color check to include Squirtle's water effect
-let explosionColor;
-switch(enemy.userData.type) {
-    case 'charmander':
-        explosionColor = 0xFF4500;
-        break;
-    case 'pikachu':
-        explosionColor = 0xFFD700;
-        break;
-    case 'squirtle':
-        explosionColor = 0x00BFFF;
-        break;
-    default:
-        explosionColor = 0xff3300;
-}
-createExplosion(enemy.position, explosionColor);
