@@ -1,6 +1,7 @@
 # Vibe Coding Framework v1.0
 **Author:** [SeanLon](https://seanlon.site)  
-**Last Updated:** March 29, 2025  
+**Last Updated:** March 29, 2025 
+**Game code:**  `gh-pages`
 
 ## Overview
 Vibe Coding is a systematic approach to AI-assisted game development that combines modern AI tools with structured development practices. This framework enables developers to create high-quality, performant games while leveraging AI capabilities effectively.
