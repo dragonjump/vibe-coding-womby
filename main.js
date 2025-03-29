@@ -472,7 +472,7 @@ menuContent.innerHTML = `
         margin-bottom: 20px;
         font-size: clamp(24px, 5vw, 36px);
         text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-    ">Rabu - Bear Adventure</h1>
+    "> 💞💖 Rabu - Bear Adventure</h1>
     <div style="color: white; margin-bottom: 20px;">
         <h2 style="
             font-size: clamp(18px, 4vw, 24px);
@@ -855,13 +855,16 @@ window.addEventListener('load', () => {
         firstLevelButton.style.borderColor = '#4CAF50';
         firstLevelButton.style.boxShadow = '0 0 15px rgba(76, 175, 80, 0.5)';
     }
-});
-
-// Update the start button handler
-document.getElementById('startButton').addEventListener('click', () => {
-    updateGameState('playing');
+    setTimeout(() => {
+        
+    const firstLevelButton = document.querySelector('.level-button');
+  
+        firstLevelButton.click();
     // Initialize audio system
-    initAudioSystem();
+    initAudioSystem(); 
+    }, 5000);
+});
+function resumeAudioContext() { 
     
     // Resume audio context if it exists
     if (audioContext) {
@@ -871,6 +874,13 @@ document.getElementById('startButton').addEventListener('click', () => {
             console.error('Error resuming AudioContext:', error);
         });
     }
+}
+// Update the start button handler
+document.getElementById('startButton').addEventListener('click', () => {
+    updateGameState('playing');
+    // Initialize audio system
+    // initAudioSystem();
+    resumeAudioContext();
     
     // Hide start screen and start game
     startScreen.style.display = 'none';
@@ -895,7 +905,7 @@ function initAudioSystem() {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         audioListener = new THREE.AudioListener();
         audioListener.context = audioContext;  // Ensure listener has context
-        
+ 
         // Create sound buffers
         setupSynthSounds();
         
@@ -943,7 +953,7 @@ function playBackgroundMusicLoop() {
         backgroundMusicSource.loop = true;
 
         const gainNode = audioContext.createGain();
-        gainNode.gain.value = 0.3; // Adjust volume as needed
+        gainNode.gain.value = 0.8; // Adjust volume as needed
 
         // Connect nodes
         backgroundMusicSource.connect(gainNode);
@@ -1630,8 +1640,9 @@ function createMusicNote(frequency, time, gainNode) {
 }
 
 function playBackgroundMusic(track) {
+ 
     if (!audioContext || currentMusicTrack === track) return;
-    
+
     currentMusicTrack = track;
     
     if (!musicGainNode) {
@@ -2067,7 +2078,8 @@ function initializeLevelElements(level) {
         2: MUSIC_TRACKS.CLOUD_CITY,
         3: MUSIC_TRACKS.SUNSET
     };
-    playBackgroundMusic(musicTracks[level.id]);
+    const musicToPlay =  musicTracks[2] 
+    playBackgroundMusic(musicTracks[level.id] || musicToPlay);
 
     // Reset player position
     hamster.position.set(0, 2, 0);
