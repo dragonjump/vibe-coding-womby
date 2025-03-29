@@ -3,6 +3,7 @@
 **Date:** March 29, 2025  
 **Deployment:** `gh-pages`
 
+**site:** `https://rabu.lol`
 ---
 
 # A. GETTING STARTED
@@ -36,6 +37,7 @@ It's important to invest time in the foundational setup to create a high-quality
 
 # B. LET'S BEGIN
 ### 1. First, Create This Folder Structure with Empty Files
+
 .cursor/rules
 Memory Bank/
 ├── Game Design/
@@ -49,6 +51,7 @@ Memory Bank/
 │   ├── progress.md
 ├── Architecture/
 │   ├── architecture.md
+
 
 ### 2. Cursor Rules
 - Review best practices at `https://github.com/PatrickJS/awesome-cursorrules`
