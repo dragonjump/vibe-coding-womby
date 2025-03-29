@@ -2,6 +2,12 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+// Set viewport meta tag to prevent zooming
+const viewportMeta = document.createElement('meta');
+viewportMeta.name = 'viewport';
+viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+document.head.appendChild(viewportMeta);
+
 // Import level system, power-ups, and achievements
 import { LevelManager, LEVELS } from './levels.js';
 import { PowerUpManager, POWERUP_TYPES } from './powerups.js';
@@ -1189,6 +1195,28 @@ window.addEventListener('resize', () => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
 
+// Prevent pinch zoom and double tap zoom
+document.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTap < 300) {
+        e.preventDefault();
+    }
+    lastTap = now;
+}, { passive: false });
+
+let lastTap = 0;
+
+// Prevent double tap zoom on iOS Safari
+document.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
 // Create collectible seed
 function createCollectibleSeed(x, y, z) {
     const seed = new THREE.Group();
@@ -1858,12 +1886,14 @@ function updateTouchControls() {
     } else {
         // Portrait layout
         moveControls.style.transform = `scale(${scale})`;
-        moveControls.style.right = '40px';
+        // moveControls.style.right = '40px';
+        moveControls.style.right = '3%';
         moveControls.style.bottom = '40px';
         moveControls.style.height = `${safeArea}px`;
 
         actionControls.style.transform = `scale(${scale})`;
-        actionControls.style.left = '40px';
+        // actionControls.style.left = '40px';
+        actionControls.style.left = '3%';
         actionControls.style.bottom = '40px';
         actionControls.style.height = `${safeArea * 0.8}px`;
     }
@@ -2646,7 +2676,7 @@ function resetGame() {
     
     // Spawn initial power-ups around the player
     Logger.game('Spawning initial power-ups');
-    const numInitialPowerUps = 3;
+    const numInitialPowerUps = 0;
     for (let i = 0; i < numInitialPowerUps; i++) {
         const powerUpTypes = [POWERUP_TYPES.BOMB, POWERUP_TYPES.STAR, POWERUP_TYPES.CARROT];
         const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
@@ -3932,9 +3962,10 @@ document.body.appendChild(gameOverScreen);
 
 // Add event listeners for game over buttons
 document.getElementById('returnHomeButton').addEventListener('click', () => {
-    gameOverScreen.style.display = 'none';
-    startScreen.style.display = 'block';
-    gameState.state = 'start';
+    // gameOverScreen.style.display = 'none';
+    // startScreen.style.display = 'block';
+    // gameState.state = 'start';
+    location.reload();
 });
 
 document.getElementById('retryButton').addEventListener('click', () => {
@@ -3953,8 +3984,8 @@ function generateNewWorldChunk() {
     
     const newZ = gameState.scenery.lastGeneratedPosition - chunkSize;
     
-    // Spawn power-ups with 80% chance per chunk (increased from 20%)
-    if (Math.random() < 0.8) {
+    // Spawn power-ups with 0% chance per chunk (reduced from 80%)
+    if (Math.random() < 0) {
         const powerUpTypes = [POWERUP_TYPES.BOMB, POWERUP_TYPES.STAR, POWERUP_TYPES.CARROT];
         const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
         
@@ -5515,32 +5546,32 @@ function createCabana(x, z) {
 const DINO_FACTS = [
     {
         title: "Tyrannosaurus Rex - The King of Dinosaurs",
-        fact: "T-Rex was one of the largest land carnivores of all time, measuring up to 40 feet in length and weighing up to 7 tons! Despite its fierce reputation, scientists believe it was also a very intelligent predator with excellent vision and sense of smell.",
+        fact: "[CREDIT: Quaternius @ POLYPIZZA] T-Rex was one of the largest land carnivores of all time, measuring up to 40 feet in length and weighing up to 7 tons! Despite its fierce reputation, scientists believe it was also a very intelligent predator with excellent vision and sense of smell. ",
         image: "./src/data/Trex.webp"
     },
     {
         title: "Triceratops - The Three-Horned Face",
-        fact: "Triceratops had three horns and a large bony frill protecting its neck. These features weren't just for defense - they were also used for species recognition and competition between males, similar to modern deer antlers!",
+        fact: "[CREDIT: Quaternius @ POLYPIZZA] Triceratops had three horns and a large bony frill protecting its neck. These features weren't just for defense - they were also used for species recognition and competition between males, similar to modern deer antlers! ",
         image: "./src/data/Triceratops.webp"
     },
     {
         title: "Pterosaur - The Flying Reptile",
-        fact: "Pterosaurs were the first vertebrates to achieve powered flight! Some species had wingspans of up to 33 feet - as wide as a small plane. They had hollow bones and were covered in hair-like fibers, making them perfectly adapted for flight.",
+        fact: "[CREDIT: Hoai Nguyen @ POLYPIZZA ] Pterosaurs were the first vertebrates to achieve powered flight! Some species had wingspans of up to 33 feet - as wide as a small plane. They had hollow bones and were covered in hair-like fibers, making them perfectly adapted for flight.",
         image: "./src/data/Pterosaur.webp"
     }, 
     {
         title: "Pikachu - The Electric Mouse Pokémon",
-        fact: "Pikachu stores electricity in its cheek pouches, which can generate powerful thunderbolts of up to 100,000 volts! Despite its immense power, Pikachu is known for its playful nature and strong bonds with human trainers.",
+        fact: "[CREDIT:  Tipatat Chennavasin @ POLYPIZZA ] Pikachu stores electricity in its cheek pouches, which can generate powerful thunderbolts of up to 100,000 volts! Despite its immense power, Pikachu is known for its playful nature and strong bonds with human trainers.",
         image: "./src/data/Pikachu.jpg"
     },
     {
         title: "Charmander - The Flame Pokémon",
-        fact: "The flame on Charmander's tail is a measure of its life force and emotions. When healthy, the flame burns brightly, and it's said that if the flame goes out, Charmander would lose its life energy. It evolves into the powerful Charizard!",
+        fact: "[CREDIT:  Tipatat Chennavasin @ POLYPIZZA ] The flame on Charmander's tail is a measure of its life force and emotions. When healthy, the flame burns brightly, and it's said that if the flame goes out, Charmander would lose its life energy. It evolves into the powerful Charizard!",
         image: "./src/data/Charmander.png"
     },
     {
         title: "Squirtle - The Tiny Turtle Pokémon",
-        fact: "Squirtle's shell isn't just for protection - it helps reduce water resistance when swimming, allowing it to move through water at incredible speeds. When it feels threatened, it can withdraw into its shell and spray powerful jets of water!",
+        fact: "[CREDIT:  Tipatat Chennavasin @ POLYPIZZA ] Squirtle's shell isn't just for protection - it helps reduce water resistance when swimming, allowing it to move through water at incredible speeds. When it feels threatened, it can withdraw into its shell and spray powerful jets of water!",
         image: "./src/data/Squirtle.png"
     }
 ];
