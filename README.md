@@ -1,172 +1,139 @@
-# Vibe Coding Framework v1.0
-**Author:** [SeanLon](https://seanlon.site)  
-**Last Updated:** March 29, 2025 
-**Game code:**  `gh-pages`
+#   Guide to Vibe Coding V1.0
+**Author:** [SeanLon @ https://seanlon.site](https://seanlon.site)  
+**Date:** March 29, 2025  
+**Deployment:** `gh-pages`
 
-## Overview
-Vibe Coding is a systematic approach to AI-assisted game development that combines modern AI tools with structured development practices. This framework enables developers to create high-quality, performant games while leveraging AI capabilities effectively.
+---
 
-## A. Prerequisites
+# A. GETTING STARTED
+To begin vibe coding, you need to prepare these 3 main ingredients.
 
-### 1. Large Language Model (LLM) Tools
-Select one or more of these AI tools with advanced reasoning capabilities:
-- **Claude** (Recommended for complex reasoning)
-- **GPT-4** (Strong general-purpose capabilities)
-- **Gemini** (Excellent for technical tasks)
-- **Copilot** (Great for code completion)
-- **Deepseek** (Specialized for development)
-- **Qwen** (Strong multilingual support)
-- **Grok** (Advanced problem-solving)
+### 1. Deep Thinking AI Tools  
+AI tools with deep thinking capabilities. You may use any of the following:  
+- **Deepseek**  
+- **Qwq**  
+- **Qwen**  
+- **Kimi AI**  
+- **Gemini**  
+- **Copilot**  
+- **Grok**  
+- **Claude**  
 
-### 2. AI-Enhanced Development Environment
-Choose an IDE with integrated AI capabilities:
-- **Cursor** (Recommended - robust AI integration)
-- **GitHub Copilot** (Strong code completion)
-- **Windsurf** (Real-time AI assistance)
-- **Cline** (Specialized for game development)
+### 2. AI Code Editor with Agentic AI Capabilities
+Choose one of the following:  
+- **Windsurf**  
+- **CursorAI**  
+- **Rool**  
+- **Cline**   
 
-### 3. Project Foundation
-Essential components for project initialization:
-- **Concept Documentation**
-- **Knowledge Base**
-- **Technical Specifications**
-- **Architecture Constraints**
+### 3. Scaffolding Structure in Your Project
+You must prepare:
+- **Concept Idea**  
+- **Memory Bank**  
+- **Design Specifications and Constraints**   
 
-## B. Project Setup
+It's important to invest time in the foundational setup to create a high-quality, fully functional, and visually appealing game. While effort is still required, this approach will accelerate development and help bridge technical knowledge gaps (such as coding in specific areas). 
 
-### 1. Directory Structure
-Create the following project structure:
-```
-.cursor/
-└── rules/
-Memory-Bank/
-├── Game-Design/
+# B. LET'S BEGIN
+### 1. First, Create This Folder Structure with Empty Files
+.cursor/rules
+Memory Bank/
+├── Game Design/
 │   ├── game-design-document.md
-│   ├── game-concept.md
-├── Technical/
+│   ├── game-idea-document.md
+├── Tech Stack/
 │   ├── tech-stack.md
-│   ├── architecture.md
-├── Planning/
+├── Implementation Plan/
 │   ├── implementation-plan.md
-│   ├── milestones.md
 ├── Progress/
-│   ├── development-log.md
-│   ├── decisions-log.md
-```
+│   ├── progress.md
+├── Architecture/
+│   ├── architecture.md
 
-### 2. Development Guidelines
-- Configure `.cursor/rules` following best practices from [Awesome Cursor Rules](https://github.com/PatrickJS/awesome-cursorrules)
-- Access rules editor: `Cmd/Ctrl + Shift + P` → "rules"
-- Implement strict typing and performance optimization rules
-- Set up linting and formatting guidelines
+### 2. Cursor Rules
+- Review best practices at `https://github.com/PatrickJS/awesome-cursorrules`
+- Access rules in Cursor: Press Cmd + Shift + P, type "rules", and hit Enter
+- Configure the LLM to behave like an expert and write clean, maintainable, performant code. This is essential for creating an optimized game with clean code.
 
-### 3. Game Design Documentation
-1. Use AI tools to develop:
-   - Core gameplay mechanics
-   - Player experience goals
-   - Technical constraints
-   - Art direction
-2. Create comprehensive GDD in `game-design-document.md`
-3. Document core concepts in `game-concept.md`
+### 3. Game Design
+- Document your game idea and use any deep thinking AI tool to create a simple **Game Design Document** in Markdown format (`.md`)  
+- Review and refine the document to align with your vision. A basic document is fine—the goal is to provide AI context about the game's structure and intent  
 
-### 4. Technical Foundation
-Develop `tech-stack.md`:
-- Framework selection criteria
-- Performance requirements
-- Scalability considerations
-- Development tools
-- Build system
-- Testing framework
+### 4. Tech Stack and `.cursor/rules`
+- Use `deep thinking AI tools` to recommend the best tech stack for your game (e.g., ThreeJS and WebSocket for a multiplayer 3D game)  
+- Challenge it to propose the *simplest yet most robust stack possible*  
 
-### 5. Implementation Strategy
-Create detailed `implementation-plan.md`:
-- Modular development steps
-- Testing criteria for each module
-- Integration checkpoints
-- Performance benchmarks
-- Quality assurance guidelines
+### 5. Implementation Plan
+Ask `deep thinking AI tools` to review:  
+- The Game Design Document  
+- The tech stack recommendations
+- The Cursor rules  
 
-### 6. Architecture Design
-Document in `architecture.md`:
-- System architecture
-- Component relationships
-- Data flow patterns
-- Performance optimization strategies
-- Scalability considerations
+Then create a detailed **Implementation Plan** in Markdown (`.md`) with step-by-step instructions for your AI developers:  
+- Make steps small and specific  
+- Include tests for each step to validate implementation  
+- Use clear, concrete instructions without code  
+- Focus on the *base game* rather than the full feature set  
 
-## C. Development Workflow
+### 6. Architecture
+Ask deep thinking AI tools to recommend:  
+- The best technical architecture
+- Well-reasoned tradeoff decisions
 
-### 1. Project Initialization
-1. Configure Cursor with Claude 3.5 Sonnet
-2. Review `/Memory-Bank` documentation
-3. Validate implementation plan
-4. Update documentation based on feedback
+This file will later help Cursor validate that its code fulfills the architectural goals. You can validate and adjust if anything doesn't make sense.
 
-### 2. Iterative Development
-1. Follow implementation plan steps
-2. Document progress in `development-log.md`
-3. Update architecture insights
-4. Maintain test coverage
-5. Regular performance profiling
+---
 
-### 3. Version Control
-- Commit after each milestone
-- Start fresh chat sessions (`Cmd/Ctrl + N`)
-- Review previous progress
-- Validate before proceeding
+# C. LET'S START CODING
+Now the fun begins!
 
-### 4. Feature Implementation
-For new features:
-1. Create feature specification
-2. Define acceptance criteria
-3. Implement incrementally
-4. Document in `decisions-log.md`
+### 1. Requirements Clarification
+- Select **Claude Sonnet 3.7 Thinking** in Cursor 
+- Prompt: "Study all documents in `/memory-bank`. Is `implementation-plan.md` clear? Ask me questions to ensure 100% clarity."
+- If changes are needed, have Cursor update `implementation-plan.md` accordingly 
 
-## Troubleshooting Guide
+### 2. Implementation 
+- Select **Claude Sonnet 3.7 Thinking** in Cursor  
+- Prompt: "Study all documents in `/memory-bank` thoroughly and proceed with Step 1 of the implementation plan. Go step by step. Do not proceed to the next step until I validate the tests. Once approved, document your work in `progress.md` for future maintenance, and add architectural insights to `architecture.md` explaining each file's purpose."
 
-### Error Resolution
-1. Console errors:
-   - Access browser console (`F12`)
-   - Copy error messages
-   - Provide to AI assistant
+### 3. Save Your Code
+- Save your code regularly
+- Start a new chat after each milestone (`Cmd + N`, `Cmd + I`) to prevent context confusion  
+- Prompt: "Review all files in the memory-bank, read progress.md to understand prior work, and proceed with Step 2. Wait for test validation before starting Step 3."
+- Repeat until completing the entire `implementation-plan.md`  
 
-2. Visual issues:
-   - Use screenshots
-   - Describe expected behavior
-   - Document reproduction steps
+---
 
-### Development Blockers
-1. Code issues:
-   - Revert to last stable commit
-   - Review error patterns
-   - Consult AI for solutions
+## 4. Refining Details
+Congratulations on building the base game! Now you can refine it with specific customizations (e.g., adjusting colors, sizes, or shapes).
+- Create a new `feature-implementation.md` file with concise steps and tests  
+- Implement and test incrementally  
 
-2. Architecture concerns:
-   - Review `architecture.md`
-   - Consult AI for alternatives
-   - Document decisions
+---
 
-## Best Practices
+## Troubleshooting
+If a prompt fails or breaks the game:  
+- Click "restore" in Cursor and refine your prompt until it works  
 
-### AI Interaction
-- Use Claude 3.5 Sonnet for code changes
-- Employ GPT-4 for documentation
-- Provide clear, specific prompts
-- Request thorough analysis
+For errors:  
+- **JavaScript Issues:** Open the console (`F12`), copy the error, and paste it into Cursor—or provide screenshots for visual glitches  
+- **Quick Solution:** Install [BrowserTools](https://browsertools.agentdesk.ai/installation) to automate error capturing  
 
-### Quality Assurance
-- Regular performance testing
-- Comprehensive unit tests
-- Integration testing
-- User experience validation
+If stuck:  
+- Revert to your last Git commit (`git reset`) and try new prompts  
+- If still stuck:  
+- Use [RepoPrompt](https://repoprompt.com/) and consult **Grok 3 Thinking** for assistance  
 
-### Documentation
-- Keep documentation updated
-- Document architectural decisions
-- Track progress consistently
-- Maintain change logs
+---
+
+## Additional Tips
+- **Minor Changes:** Use Claude Sonnet 3.5  
+- **Content Writing:** Use GPT-4.5  
+- **Better Results:** Include in prompts: "Take your time to get this right—I'm not in a hurry. What matters is precise execution of my requests. Ask for clarification if needed."
+
+---
 
 ## Credits
-Based on the original work at [EnzeD/vibe-coding](https://github.com/EnzeD/vibe-coding)
+https://github.com/EnzeD/vibe-coding
 
 ---
