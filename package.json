@@ -1,0 +1,15 @@
+{
+  "name": "rocket-womby-adventure",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A 3D platformer game featuring a rocket-powered womby",
+  "main": "main.js",
+  "scripts": {
+    "start": "serve ."
+  },
+  "dependencies": {
+    "serve": "^14.2.1",
+    "simplex-noise": "^4.0.1",
+    "three": "^0.160.0"
+  }
+}

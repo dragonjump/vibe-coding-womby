@@ -1,0 +1,150 @@
+# Rocket Hamster Adventure - Engineering Rules
+
+## Architecture & Code Structure
+
+1. **Modular Architecture**
+   - Implement a clear separation of concerns using an Entity-Component-System (ECS) pattern
+   - Divide code into logical modules: `entities`, `systems`, `components`, `utils`, `scenes`
+   - Each module must have clear responsibilities and minimal dependencies
+
+2. **Dependency Management**
+   - Use npm/yarn with a locked dependency file (`package-lock.json`)
+   - Keep dependencies updated but test thoroughly before upgrading major versions
+   - Avoid unnecessary dependencies; implement custom solutions when they provide significant advantages
+
+3. **Scene Management**
+   - Use a scene manager to handle loading/unloading of game scenes
+   - Implement asynchronous loading with progress indicators
+   - Use Three.js/Babylon.js scene management features appropriately
+
+## Performance Optimization
+
+1. **Rendering Optimization**
+   - Implement frustum culling for all 3D objects
+   - Use Level-of-Detail (LOD) models for distant objects
+   - Batch static geometry where possible
+   - Limit dynamic lights and use lightmaps for static lighting
+
+2. **Physics Optimization**
+   - Use compound shapes in Cannon.js for complex objects
+   - Implement sleep modes for inactive physics objects
+   - Avoid unnecessary physics updates for distant objects
+   - Use collision masks to reduce unnecessary collision checks
+
+3. **Memory Management**
+   - Implement object pooling for frequently created/destroyed objects
+   - Use typed arrays for physics and vertex data
+   - Avoid memory leaks by properly cleaning up event listeners and references
+   - Profile memory usage regularly
+
+## Physics & Collision
+
+1. **Physics Configuration**
+   - Use appropriate mass values for objects (0 for static, positive for dynamic)
+   - Implement proper collision shapes (convex hulls for complex models)
+   - Use collision groups and masks to control interactions
+   - Tune physics parameters (gravity, friction, restitution) for responsive feel
+
+2. **Collision Handling**
+   - Implement custom collision callbacks for game logic
+   - Use raycasting for precise interactions when necessary
+   - Synchronize physics transformations with rendering transformations
+   - Implement proper collision response for player movement
+
+## Asset Management
+
+1. **Asset Pipeline**
+   - Implement a consistent naming convention for all assets
+   - Use a version control system for 3D models and textures
+   - Compress textures appropriately (PNG for alpha, JPG for backgrounds)
+   - Implement asset loading with proper error handling
+
+2. **3D Model Requirements**
+   - Optimize polygon counts for low-poly style (max 500 polys for small objects)
+   - Use UV mapping efficiently to minimize texture waste
+   - Implement proper normals for lighting calculations
+   - Export models in glTF format for web
+
+## Animation & Effects
+
+1. **Character Animation**
+   - Implement smooth interpolation for movement animations
+   - Use bone constraints for rocket pack effects
+   - Implement proper foot sliding and ground contact adjustments
+   - Use inverse kinematics for natural movements
+
+2. **Particle Effects**
+   - Implement particle pooling to reduce garbage collection
+   - Use texture atlases for particle sprites
+   - Implement proper z-sorting for transparent particles
+   - Limit particle count and reuse systems where possible
+
+## User Interface
+
+1. **UI Architecture**
+   - Implement a canvas-based UI system separate from 3D rendering
+   - Use responsive design principles for different screen sizes
+   - Implement proper state management for UI components
+   - Use consistent styling throughout the interface
+
+2. **HUD Elements**
+   - Implement performance-optimized text rendering
+   - Use sprite-based icons for better performance
+   - Implement proper scaling for different resolutions
+   - Use canvas 2D context for non-3D UI elements
+
+## Testing & Debugging
+
+1. **Testing Strategy**
+   - Implement unit tests for core game logic
+   - Use integration testing for physics and rendering systems
+   - Perform regular performance profiling
+   - Implement automated screenshot testing for visual consistency
+
+2. **Debugging Tools**
+   - Implement a debug console with variable inspection
+   - Use physics visualization during development
+   - Implement frame time monitoring
+   - Use browser dev tools for memory and performance analysis
+
+## Deployment & Build
+
+1. **Build Process**
+   - Implement a production build with minification and bundling
+   - Use code splitting for lazy loading of game assets
+   - Implement proper caching headers for static assets
+   - Use a CDN for asset distribution
+
+2. **Deployment Strategy**
+   - Implement blue-green deployment for zero downtime
+   - Use automated deployment pipelines
+   - Implement proper error monitoring in production
+   - Use feature flags for new functionality
+
+## Version Control
+
+1. **Git Workflow**
+   - Use feature branches with descriptive names
+   - Implement proper commit messages following conventional commits
+   - Use pull requests with code review requirements
+   - Tag releases with version numbers
+
+2. **Branching Strategy**
+   - Maintain a stable `main` branch
+   - Use `develop` branch for integration
+   - Create feature branches from `develop`
+   - Use hotfix branches for critical issues
+
+## Documentation
+
+1. **Code Documentation**
+   - Use JSDoc for all public functions and classes
+   - Document complex algorithms and decisions
+   - Maintain an architecture decision record (ADR)
+   - Keep documentation updated with code changes
+
+2. **External Documentation**
+   - Maintain a technical design document
+   - Create API documentation using tools like TypeDoc
+   - Document build and deployment processes
+   - Maintain a troubleshooting guide for common issues
