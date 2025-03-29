@@ -3,7 +3,7 @@
 **Date:** March 29, 2025  
 **Deployment:** `gh-pages`
 
-**site:** `https://rabu.lol`
+**site:** [   https://rabu.lol](https://rabu.lol)  
 ---
 
 # A. GETTING STARTED
